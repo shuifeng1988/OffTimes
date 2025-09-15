@@ -1,0 +1,873 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App Name -->
+    <string name="app_name">OffTimes</string>
+    <string name="app_name_short">OffTimes</string>
+    
+    <!-- Widget -->
+    <string name="widget_description">Shows phone usage statistics and trend charts</string>
+    <string name="widget_name">OffTimes Usage Stats</string>
+    
+    <!-- Bottom Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_categories">Categories</string>
+    <string name="nav_stats">Stats</string>
+    <string name="nav_settings">Settings</string>
+    
+    <!-- Common Actions -->
+    <string name="action_back">Back</string>
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_confirm">Confirm</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_add">Add</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_refresh">Refresh</string>
+    <string name="action_login">Login</string>
+    <string name="action_logout">Logout</string>
+    <string name="action_register">Register</string>
+    <string name="action_upgrade">Upgrade</string>
+    <string name="action_fix">Fix</string>
+    <string name="action_check">Check</string>
+    
+    <!-- Time Units -->
+    <string name="time_minutes">minutes</string>
+    <string name="time_hours">hours</string>
+    <string name="time_seconds">seconds</string>
+    <string name="time_days">days</string>
+    <string name="time_weeks">weeks</string>
+    <string name="time_months">months</string>
+    
+    <!-- Home -->
+    <string name="home_title">Today\'s Stats</string>
+    <string name="home_daily_usage">Daily Usage Details</string>
+    <string name="home_24h_details">24H Usage Details</string>
+    <string name="home_no_data">No Data</string>
+    <string name="home_total_usage">Total Usage</string>
+    <string name="home_apps_details">App Details</string>
+    <string name="home_today_stats">Today\'s Stats</string>
+    <string name="home_timer">Timer</string>
+    <string name="home_countdown">CountDown</string>
+    <string name="home_pending_reward">Pending</string>
+    <string name="home_goal_warning">⚠️ Need %.1fh usage today to achieve goal</string>
+    <string name="home_available_time">🌟 Available %.1fh today, keep it up!</string>
+    <string name="home_set_goal_warning">⚠️ Please set goal time</string>
+    <string name="select_category">Select Category</string>
+    <string name="total_usage_hint_title">Total Usage Category</string>
+    <string name="total_usage_hint_desc">• Automatically aggregates all app usage time except \"Excluded from Stats\"\n• Apps cannot be manually assigned to this category\n• This category\'s usage time equals the sum of all other categories</string>
+    <string name="no_data_available">No data available</string>
+    <string name="no_data_yesterday">No data in Yest</string>
+    
+    <!-- Categories -->
+    <string name="categories_title">App Category Management</string>
+    <string name="categories_exclude_stats">Exclude from Stats</string>
+    <string name="categories_edit_mode">Edit Mode</string>
+    <string name="categories_system_apps">System Apps</string>
+    <string name="categories_user_apps">User Apps</string>
+    
+    <!-- Stats -->
+    <string name="stats_title">Usage Statistics</string>
+    <string name="stats_today">Today</string>
+    <string name="stats_yesterday">Yesterday</string>
+    <string name="stats_this_week">This Week</string>
+    <string name="stats_this_month">This Month</string>
+    <string name="stats_total">Total</string>
+    <string name="stats_usage_data">Usage Data</string>
+    <string name="stats_completion_data">Completion Data</string>
+    
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_account_management">Account Management</string>
+    <string name="settings_permission_management">Permission Management</string>
+    <string name="settings_advanced_features">Advanced Features</string>
+    <string name="settings_feature_management">Feature Management</string>
+    <string name="settings_about">About App</string>
+    <string name="settings_debug">Debug Features</string>
+    <string name="settings_language">Language Settings</string>
+    <string name="settings_language_description">Choose app display language (中文/English)</string>
+    <string name="settings_data_backup">Data Backup</string>
+    <string name="settings_data_backup_description">Cloud backup data to prevent loss</string>
+    <string name="settings_widget_display">Widget Display Days</string>
+    <string name="settings_widget_display_description">Set historical days shown in lock screen widget</string>
+    <string name="settings_database_debug">Database Debug</string>
+    <string name="settings_database_debug_description">View database status and generate test data</string>
+    <string name="settings_reset_onboarding">Reset Onboarding</string>
+    <string name="settings_reset_onboarding_description">Re-experience the first launch guide</string>
+    
+    <!-- Settings Actions -->
+    <string name="settings_action_setup">Setup</string>
+    <string name="settings_action_enter">Enter</string>
+    <string name="settings_action_manage">Manage</string>
+    <string name="settings_action_enable">Enable</string>
+    <string name="settings_action_debug">Debug</string>
+    <string name="settings_action_reset">Reset</string>
+    
+    <!-- Backup Settings Dialog -->
+    <string name="backup_settings_title">Data Backup Settings</string>
+    <string name="backup_auto_backup">Auto Backup</string>
+    <string name="backup_time">Backup Time</string>
+    <string name="backup_status">Backup Status</string>
+    <string name="backup_last_backup">Last Backup</string>
+    <string name="backup_not_backed_up">Not Backed Up</string>
+    <string name="backup_count">Backup Count</string>
+    <string name="backup_data_size">Data Size</string>
+    <string name="backup_loading_info">Loading backup info...</string>
+    <string name="backup_manual_backup">Backup Now</string>
+    <string name="backup_restore_data">Restore Data</string>
+    <string name="backup_done">Done</string>
+    <string name="backup_select_time">Select Backup Time</string>
+    
+    <!-- Permissions -->
+    <string name="permission_usage_stats">Usage Statistics Access</string>
+    <string name="permission_usage_stats_description">Access usage statistics</string>
+    <string name="permission_query_packages">Read App List</string>
+    <string name="permission_query_packages_description">Read phone app list</string>
+    <string name="permission_notification">Push Notifications</string>
+    <string name="permission_notification_description">Send notifications</string>
+    <string name="permission_lock_screen_widget">Lock Screen Widget</string>
+    <string name="permission_lock_screen_widget_description">Display on lock screen</string>
+    <string name="permission_auto_start">Auto Start</string>
+    <string name="permission_auto_start_description">Start on boot</string>
+    <string name="permission_background_run">Background Running</string>
+    <string name="permission_background_run_description">Run in background</string>
+    <string name="permission_vibrate">Vibration</string>
+    <string name="permission_vibrate_description">Device vibration</string>
+    <string name="permission_system_alert">System Overlay</string>
+    <string name="permission_system_alert_description">Display over other apps</string>
+    <string name="permission_granted">Enabled</string>
+    <string name="permission_denied">Disabled</string>
+    
+    <!-- Permission Dialogs -->
+    <string name="permission_notification_title">Notification Permission Required</string>
+    <string name="permission_notification_message">To remind you to complete goals and reward/punishment tasks in time, OffTime needs notification permission.</string>
+    <string name="permission_notification_usage">This permission is only used for:</string>
+    <string name="permission_notification_usage_1">Sending goal completion reminders</string>
+    <string name="permission_notification_usage_2">Sending reward/punishment task reminders</string>
+    <string name="permission_notification_usage_3">Helping you develop good time management habits</string>
+    <string name="permission_notification_confirm">Click OK to enable notification permission.</string>
+    
+    <string name="permission_lock_screen_widget_title">Lock Screen Widget Permission Required</string>
+    <string name="permission_lock_screen_widget_message">To display usage time statistics on the lock screen, OffTime needs lock screen widget permission.</string>
+    <string name="permission_lock_screen_widget_usage_1">Display usage time charts on lock screen</string>
+    <string name="permission_lock_screen_widget_usage_2">Provide instant usage time reminders</string>
+    <string name="permission_lock_screen_widget_usage_3">Help you better control phone usage habits</string>
+    <string name="permission_lock_screen_widget_note">Note: This permission is usually automatically granted during app installation. If shown as not enabled, please manually enable it in the app details page.</string>
+    <string name="permission_lock_screen_widget_confirm">Click OK to go to the app details page to check permission status.</string>
+    
+    <string name="permission_auto_start_title">Auto-start Permission Required</string>
+    <string name="permission_auto_start_message">To automatically start data statistics services after phone boot, OffTime needs auto-start permission.</string>
+    <string name="permission_auto_start_usage_1">Auto-start app services after boot</string>
+    <string name="permission_auto_start_usage_2">Ensure continuity of usage time statistics</string>
+    <string name="permission_auto_start_usage_3">Ensure real-time updates of widget data</string>
+    <string name="permission_auto_start_note">Note: This permission is usually automatically granted during app installation. If shown as not enabled, please manually enable it in auto-start management.</string>
+    <string name="permission_auto_start_confirm">Click OK to go to the auto-start settings page.</string>
+    
+    <string name="permission_background_run_title">Background Running Permission Required</string>
+    <string name="permission_background_run_message">To continuously collect app usage time and update widget data, OffTime needs background running permission.</string>
+    <string name="permission_background_run_usage_1">Continuously collect usage time data in background</string>
+    <string name="permission_background_run_usage_2">Update lock screen widget content in real-time</string>
+    <string name="permission_background_run_usage_3">Ensure goal supervision functions work properly</string>
+    <string name="permission_background_run_usage_4">Send timely reminder notifications</string>
+    <string name="permission_background_run_note">Note: You need to set OffTime as "Don't optimize" in battery optimization settings to ensure the app can run normally in the background.</string>
+    <string name="permission_background_run_confirm">Click OK to go to the battery optimization settings page.</string>
+    
+    <string name="permission_vibrate_title">Vibration Permission Required</string>
+    <string name="permission_vibrate_message">To provide vibration reminders when timers end, OffTime needs vibration permission.</string>
+    <string name="permission_vibrate_usage_1">Vibration reminders when timers end</string>
+    <string name="permission_vibrate_usage_2">Enhance sound reminder effects</string>
+    <string name="permission_vibrate_usage_3">Provide reminder functions in silent mode</string>
+    <string name="permission_vibrate_note">Note: This permission is usually automatically granted during app installation. If shown as not enabled, please manually enable it in the app details page.</string>
+    <string name="permission_vibrate_confirm">Click OK to go to the app details page to check permission status.</string>
+    
+    <string name="permission_system_alert_title">Overlay Permission Required</string>
+    <string name="permission_system_alert_message">To display overlay reminders, OffTime needs overlay permission.</string>
+    <string name="permission_system_alert_usage_1">Display overlay reminders</string>
+    <string name="permission_system_alert_usage_2">Provide instant usage time reminders</string>
+    <string name="permission_system_alert_usage_3">Enhance reminder effects</string>
+    <string name="permission_system_alert_note">Note: This permission needs to be manually enabled in system settings.</string>
+    <string name="permission_system_alert_confirm">Click OK to go to the overlay permission settings page.</string>
+    
+    <!-- Login/Register -->
+    <string name="login_title">Login</string>
+    <string name="login_phone_number">Phone Number</string>
+    <string name="login_password">Password</string>
+    <string name="login_verification_code">Verification Code</string>
+    <string name="login_get_code">Get Code</string>
+    <string name="login_alipay_quick">Alipay Quick Login</string>
+    <string name="login_google_quick">Google Quick Login</string>
+    <string name="login_password_tab">Password Login</string>
+    <string name="login_sms_tab">SMS Login</string>
+    <string name="login_phone_number_placeholder">Enter phone number</string>
+    <string name="login_account">Account</string>
+    <string name="login_account_placeholder">Enter phone number or username</string>
+    <string name="login_password_placeholder">Enter password</string>
+    <string name="login_confirm_password">Confirm Password</string>
+    <string name="login_confirm_password_placeholder">Enter password again</string>
+    <string name="login_verification_code_placeholder">Enter verification code</string>
+    <string name="login_hide_password">Hide password</string>
+    <string name="login_show_password">Show password</string>
+    <string name="login_button">Login</string>
+    <string name="register_button">Register</string>
+    <string name="login_with_alipay">Login with Alipay</string>
+    <string name="login_with_google">Login with Google</string>
+    <string name="login_google_description">Use your Google account for secure login and better service experience</string>
+    <string name="login_google_welcome">Welcome to OffTimes</string>
+    <string name="login_google_privacy_note">By logging in, you agree to our Terms of Service and Privacy Policy</string>
+    <string name="login_switch_google_account">Switch Google Account</string>
+    
+    <!-- Validation error messages -->
+    <string name="error_invalid_account">Please enter a valid account (phone number or username)</string>
+    <string name="error_invalid_phone">Please enter a valid phone number</string>
+    <string name="error_password_too_short">Password must be at least %d characters</string>
+    <string name="error_passwords_not_match">The two passwords do not match</string>
+    <string name="error_invalid_sms_code">Please enter a 6-digit verification code</string>
+    
+    <!-- Trial and upgrade messages -->
+    <string name="trial_active">Free Trial Active</string>
+    <string name="trial_expired">Trial Expired</string>
+    <string name="trial_expired_subtitle">Upgrade to Premium to continue</string>
+    <string name="trial_remaining_days">%d days remaining</string>
+    <string name="upgrade_now">Upgrade Now</string>
+    <string name="upgrade_with_price">Upgrade %s</string>
+    
+    <string name="login_google_debug">🔧 Developer Test Google Login</string>
+    <string name="login_google_debug_note">For development testing only, simulates Google login</string>
+    <string name="login_alipay_debug">🔧 Developer Test Login</string>
+    <string name="login_alipay_debug_note">For development testing only, skips Alipay verification</string>
+    <string name="login_alipay_description">Use your Alipay account for secure login, no need to remember passwords</string>
+    <string name="login_sending_code">Sending...</string>
+    <string name="login_send_code">Send Code</string>
+    <string name="login_send_sms_failed">Failed to send SMS code</string>
+    <string name="no_account">No account?</string>
+    <string name="has_account">Already have an account?</string>
+    <string name="register_now">Register Now</string>
+    <string name="login_now">Login Now</string>
+    <string name="back_button">Back</string>
+
+    <string name="register_title">Register</string>
+    <string name="register_confirm_password">Confirm Password</string>
+    
+    <!-- Payment -->
+    <string name="payment_title">OffTimes Premium</string>
+    <string name="payment_subtitle">Professional Time Management Tool</string>
+    <string name="payment_trial_status">Trial Status</string>
+    <string name="payment_trial_expired">Trial Expired</string>
+    <string name="payment_trial_active">Trial Active</string>
+    <string name="payment_premium_features">Premium Features</string>
+    <string name="payment_one_time">One-time Payment</string>
+    <string name="payment_lifetime">Lifetime Access to All Features</string>
+    <string name="payment_select_method">Select Payment Method</string>
+    <string name="payment_alipay">Alipay</string>
+    <string name="payment_wechat">WeChat Pay</string>
+    <string name="payment_google_play">Google Play</string>
+    <string name="payment_terms">• Supports Alipay and WeChat Pay\n• One-time purchase, lifetime access\n• 30-day money-back guarantee</string>
+    <string name="payment_terms_google_play">• Secure payment via Google Play\n• One-time purchase, lifetime access\n• Subject to Google Play refund policy</string>
+    <string name="payment_debug_selected_method">DEBUG: Selected payment method:</string>
+    
+    <!-- Goals -->
+    <string name="goals_title">Goals &amp; Rewards Settings</string>
+    <string name="goals_title_short">Goals &amp; Rewards</string>
+    <string name="goals_description">Set daily usage goals and completion rewards/punishments</string>
+    <string name="goals_daily_limit">Daily Limit</string>
+    <string name="goals_reward">Reward</string>
+    <string name="goals_punishment">Punishment</string>
+    
+    <!-- Offline Timer -->
+    <string name="offline_timer_title">Offline Activity Timer</string>
+    <string name="offline_timer_description">Record offline activity duration, cultivate healthy habits</string>
+    <string name="offline_timer_start">Start Timer</string>
+    <string name="offline_timer_stop">Stop Timer</string>
+    <string name="offline_timer_pause">Pause</string>
+    <string name="offline_timer_resume">Resume</string>
+    
+    <!-- Task Reminder -->
+    <string name="task_reminder_title">Task Reminders</string>
+    <string name="task_reminder_description">Set task reminders and manage time</string>
+    
+    <!-- Backup -->
+    <string name="backup_title">Data Backup</string>
+    <string name="backup_settings">Backup Settings</string>
+    <string name="backup_upload">Upload Backup</string>
+    <string name="backup_download">Download Backup</string>
+    <string name="backup_enabled">Backup Enabled</string>
+    <string name="backup_disabled">Backup Disabled</string>
+    <string name="backup_last_time">Last Backup Time</string>
+    <string name="backup_total_count">Total Backups</string>
+    <string name="backup_total_size">Total Data Size</string>
+    
+    <!-- Charts -->
+    <string name="chart_axis_usage_time">Usage H</string>
+    <string name="chart_axis_completion_rate">Completion %</string>
+    <string name="chart_axis_reward_completion">Reward %</string>
+    <string name="chart_axis_punishment_completion">Penalty %</string>
+    
+    <!-- Completion Status -->
+    <string name="status_completed">Completed</string>
+    <string name="status_pending">Pending</string>
+    
+    <!-- Data Status -->
+    <string name="no_data">No Data</string>
+    
+    <!-- Time Periods -->
+    <string name="time_period_today">Today</string>
+    <string name="time_period_this_week">This Week</string>
+    <string name="time_period_this_month">This Month</string>
+    <string name="time_period_day">Day</string>
+    <string name="time_period_week">Week</string>
+    <string name="time_period_month">Month</string>
+    <string name="time_period_yesterday">Yesterday</string>
+    <string name="time_period_total">Total</string>
+    
+    <!-- Time Units -->
+    <string name="time_unit_minutes">minutes</string>
+    <string name="time_unit_hours">hours</string>
+    <string name="time_unit_apps">apps</string>
+    
+    <!-- Time Units Short Form (for widget) -->
+    <string name="time_unit_minutes_short">m</string>
+    <string name="time_unit_hours_short">h</string>
+    <string name="time_unit_apps_short">apps</string>
+    
+    <!-- Categories -->
+    <string name="category_entertainment">Ent</string>
+    <string name="category_study">Edu</string>
+    <string name="category_fitness">Fit</string>
+    <string name="category_total_usage">All</string>
+    <string name="category_work">Work</string>
+    <string name="category_other">Other</string>
+    <string name="category_unknown">Unknown Category</string>
+    
+    <!-- Categories Full Name (for categories page and settings) -->
+    <string name="category_entertainment_full">Entertainment</string>
+    <string name="category_study_full">Education</string>
+    <string name="category_fitness_full">Fitness</string>
+    <string name="category_total_usage_full">Total Usage</string>
+    <string name="category_work_full">Work</string>
+    <string name="category_other_full">Other</string>
+    <string name="category_unknown_full">Unknown Category</string>
+
+    <!-- Debug -->
+    <string name="debug_title">Database Debug Center</string>
+    <string name="debug_subtitle">Database Debug Center</string>
+    <!-- 调试界面标题和描述 -->
+    <string name="debug_main_title">Database Debug Center</string>
+    <string name="debug_main_subtitle">Database Debug Center</string>
+    <string name="debug_back">Back</string>
+    <string name="debug_refresh">Refresh</string>
+    
+    <!-- 调试分类 -->
+    <string name="debug_category_basic_config">Basic Configuration</string>
+    <string name="debug_category_usage_stats">Usage Statistics</string>
+    <string name="debug_category_reward_system">Reward System</string>
+    <string name="debug_category_session_records">Session Records</string>
+    <string name="debug_category_system_diagnosis">System Diagnosis</string>
+    <string name="debug_category_component_test">Component Test</string>
+    
+    <!-- 调试表格项目 -->
+    <string name="debug_app_categories_title">App Categories Table</string>
+    <string name="debug_app_categories_desc">AppCategory_Users - View all app category configurations</string>
+    
+    <string name="debug_app_settings_title">App Settings Table</string>
+    <string name="debug_app_settings_desc">app_settings - View global settings (default categories, reward switches)</string>
+    
+    <string name="debug_app_info_title">App Info Table</string>
+    <string name="debug_app_info_desc">app_info_Users - View installed app information</string>
+    
+    <string name="debug_summary_usage_title">Daily Usage Summary Table</string>
+    <string name="debug_summary_usage_desc">summary_usage_user - View daily usage time summary</string>
+    
+    <string name="debug_summary_usage_week_title">Weekly Usage Summary Table</string>
+    <string name="debug_summary_usage_week_desc">summary_usage_week_user - View weekly usage time summary</string>
+    
+    <string name="debug_summary_usage_month_title">Monthly Usage Summary Table</string>
+    <string name="debug_summary_usage_month_desc">summary_usage_month_user - View monthly usage time summary</string>
+    
+    <string name="debug_daily_usage_title">Daily Usage Data</string>
+    <string name="debug_daily_usage_desc">daily_usage_user - View daily usage time statistics</string>
+    
+    <string name="debug_daily_usage_summary_title">Daily Usage Summary</string>
+    <string name="debug_daily_usage_summary_desc">By date - View app usage details for all dates</string>
+    
+    <string name="debug_reward_week_title">Weekly Reward Summary Table</string>
+    <string name="debug_reward_week_desc">reward_punishment_week_user - View weekly reward record summary</string>
+    
+    <string name="debug_reward_month_title">Monthly Reward Summary Table</string>
+    <string name="debug_reward_month_desc">reward_punishment_month_user - View monthly reward record summary</string>
+    
+    <string name="debug_goals_title">Goal Reward Configuration</string>
+    <string name="debug_goals_desc">goals_reward_punishment_users - View goal and reward settings</string>
+    
+    <string name="debug_reward_punishment_title">Reward Records Table</string>
+    <string name="debug_reward_punishment_desc">reward_punishment_user - View daily reward records</string>
+    
+    <string name="debug_app_sessions_title">App Sessions Table</string>
+    <string name="debug_app_sessions_desc">app_sessions_users - View app usage sessions</string>
+    
+    <string name="debug_timer_sessions_title">Offline Activities Table</string>
+    <string name="debug_timer_sessions_desc">timer_sessions_users - View offline activity timer records</string>
+    
+    <string name="debug_diagnosis_title">Problem Diagnosis</string>
+    <string name="debug_diagnosis_desc">Comprehensive analysis - Automatically diagnose common issues</string>
+    
+    <string name="debug_data_consistency_title">Data Consistency Diagnosis</string>
+    <string name="debug_data_consistency_desc">Data repair - Detect and fix inconsistencies between raw and aggregated data</string>
+    
+    <string name="debug_scaling_factor_title">Scaling Factor Debug</string>
+    <string name="debug_scaling_factor_desc">Screen adaptation - View current device scaling factor information</string>
+    
+    <string name="debug_pie_chart_test_title">PieChart Component Test</string>
+    <string name="debug_pie_chart_test_desc">UI testing - Verify refactored PieChart component functionality</string>
+    
+    <string name="debug_data_collection_title">Data Collection Debug</string>
+    <string name="debug_data_collection_desc">Permission check - Diagnose data collection and permission issues</string>
+    
+    <string name="debug_realtime_stats_title">Real-time Stats Debug</string>
+    <string name="debug_realtime_stats_desc">New feature - Test real-time statistics and smart merge functionality</string>
+    
+    <string name="debug_unified_update_title">Unified Update Service</string>
+    <string name="debug_unified_update_desc">Service monitoring - Check minute-by-minute auto-update service status</string>
+    
+    <string name="debug_data_validation_title">Data Validation Center</string>
+    <string name="debug_data_validation_desc">Data repair - Detect and fix anomalous data with over 60 minutes per hour in charts</string>
+    
+    <!-- 调试界面详情 -->
+    <string name="debug_tables_overview">Data Tables Overview</string>
+    <string name="debug_tables_count">Total %1$d data tables, %2$d categories</string>
+    <string name="debug_select_table">Select a data table to debug and view detailed information and data content</string>
+    
+    <!-- 调试页面标题 -->
+    <string name="debug_app_categories_screen_title">App Categories Table Debug</string>
+    <string name="debug_app_settings_screen_title">App Settings Table Debug</string>
+    <string name="debug_app_info_screen_title">App Info Debug</string>
+    <string name="debug_sessions_screen_title">Usage Sessions Table Debug</string>
+    <string name="debug_usage_screen_title">Daily Usage Data Debug</string>
+    <string name="debug_data_collection_screen_title">Data Collection Debug</string>
+    <string name="debug_data_repair_screen_title">Data Repair Center</string>
+    <string name="debug_summary_tables_screen_title">Summary Tables Debug Center</string>
+    
+    <!-- 调试界面缺失的字符串 -->
+    <string name="debug_db_debug_center_title">Database Debug Center</string>
+    <string name="debug_db_debug_center_subtitle">Database Debug Center</string>
+    <string name="debug_data_table_overview_title">Data Tables Overview</string>
+    <string name="debug_data_table_overview_desc">Total %1$d data tables, %2$d categories</string>
+    <string name="debug_select_data_table_desc">Select a data table to debug and view detailed information and data content</string>
+    <string name="debug_category_reward_punishment">Reward System</string>
+    <string name="debug_category_session_record">Session Records</string>
+    <string name="debug_reward_punishment_week_title">Weekly Reward Summary Table</string>
+    <string name="debug_reward_punishment_week_desc">reward_punishment_week_user - View weekly reward record summary</string>
+    <string name="debug_reward_punishment_month_title">Monthly Reward Summary Table</string>
+    <string name="debug_reward_punishment_month_desc">reward_punishment_month_user - View monthly reward record summary</string>
+    <string name="debug_reward_punishment_user_title">Reward Records Table</string>
+    <string name="debug_reward_punishment_user_desc">reward_punishment_user - View daily reward records</string>
+    
+    <!-- 数据验证相关字符串 -->
+    <string name="debug_data_validation">Data Validation Center</string>
+    <string name="debug_data_validation_subtitle">Data Validation Center</string>
+    <string name="debug_check_data">Check Data</string>
+    <string name="debug_fix_anomalies">Fix Anomalies</string>
+    <string name="debug_validation_report">Validation Report</string>
+    <string name="debug_status">Status</string>
+    <string name="debug_normal">Normal</string>
+    <string name="debug_anomalous">Anomalous</string>
+    
+    <!-- Error Messages -->
+    <string name="error_network">Network Error</string>
+    <string name="error_server">Server Error</string>
+    <string name="error_permission">Permission Error</string>
+    <string name="error_unknown">Unknown Error</string>
+    <string name="error_data_loading">Data Loading Failed</string>
+    
+    <!-- Success Messages -->
+    <string name="success_save">Save Successful</string>
+    <string name="success_login">Login Successful</string>
+    <string name="success_register">Registration Successful</string>
+    <string name="success_backup">Backup Successful</string>
+    <string name="success_restore">Restore Successful</string>
+    
+    <!-- Onboarding -->
+    <string name="onboarding_welcome">Welcome to OffTimes</string>
+    <string name="onboarding_permission_title">Permission Setup</string>
+    <string name="onboarding_category_title">Category Setup</string>
+    <string name="onboarding_complete">Complete Setup</string>
+    <string name="onboarding_skip">Skip</string>
+    
+    <!-- Widget -->
+    <string name="widget_settings_title">Widget Display Settings</string>
+    <string name="widget_lock_screen">Lock Screen Widget</string>
+    <string name="widget_home_screen">Home Screen Widget</string>
+    <string name="widget_display_days_title">Display Days Setting</string>
+    <string name="widget_display_days_description">Choose the number of historical days displayed in the lock screen widget line chart</string>
+    <string name="widget_preset_options">Preset Options</string>
+    <string name="widget_one_week">One Week (7 days)</string>
+    <string name="widget_half_month">Half Month (15 days)</string>
+    <string name="widget_one_month">One Month (30 days)</string>
+    <string name="widget_three_months">Three Months (90 days)</string>
+    <string name="widget_half_year">Half Year (180 days)</string>
+    <string name="widget_one_year">One Year (365 days)</string>
+    
+    <!-- About -->
+    <string name="about_version">Version</string>
+    <string name="about_build">Build Version</string>
+    <string name="about_developer">Developer</string>
+    <string name="about_contact">Contact Us</string>
+    
+    <!-- Account Management -->
+    <string name="account_management_title">Account Management</string>
+    <string name="account_trial_status">Trial Status</string>
+    <string name="account_free_trial">Free Trial</string>
+    <string name="account_trial_days_remaining">%d days of trial remaining</string>
+    <string name="account_trial_expired_title">Trial Period Ended</string>
+    <string name="account_trial_expired_description">Please upgrade to premium to continue using</string>
+    <string name="account_premium_version">Premium Version</string>
+    <string name="account_enjoy_full_features">Enjoy full features</string>
+    <string name="account_upgrade_to_premium">Upgrade to Premium</string>
+    <string name="account_pay_now">Pay Now</string>
+    <string name="account_upgrade_reminder">💰 Upgrade Reminder</string>
+    <string name="account_upgrade_reminder_text">After trial period ends, pay a one-time fee of 9.9 yuan for permanent access to all features</string>
+    <string name="account_not_logged_in">Not Logged In</string>
+    <string name="account_login_to_sync">Login to sync data to cloud</string>
+    <string name="account_multi_device_sync">Support multi-device data sync</string>
+    <string name="account_login_register">Login/Register</string>
+    <string name="account_nickname_not_set">Nickname not set</string>
+    <string name="account_data_sync_status">Data sync: %s</string>
+    <string name="account_data_sync_enabled">Enabled</string>
+    <string name="account_data_sync_disabled">Disabled</string>
+    <string name="account_edit_profile">Edit Profile</string>
+    <string name="account_logout">Logout</string>
+    
+    <!-- Data Validation -->
+    <string name="data_validation_info">Function Description</string>
+    <string name="data_validation_check_desc">Scan chart data for the last 7 days to detect if single-hour usage exceeds 60 minutes</string>
+    <string name="data_validation_fix_desc">Automatically correct anomalous data exceeding 60 minutes to the 60-minute limit</string>
+    <string name="data_validation_cause_desc">Cause of anomalies: Usually due to cumulative errors in cross-period session splitting algorithms</string>
+    <string name="data_validation_safe_desc">Data safety: The repair process only adjusts anomalous data without affecting normal data</string>
+    
+    <!-- Time Formats -->
+    <string name="format_minutes_short">%dm</string>
+    <string name="format_hours_minutes" formatted="false">%dh %dm</string>
+    <string name="format_days_remaining">%d days left</string>
+    <string name="format_usage_percent">%.1f%%</string>
+
+    <!-- Offline Activity App Names -->
+    <string name="offline_activity_app_name">🏃 Offline Activity (%1$s)</string>
+    <string name="offline_label">Offline</string>
+    <string name="online_label">Online</string>
+    <string name="category_label">Category: %1$s</string>
+    <string name="current_category">Category: %1$s</string>
+    <string name="uncategorized">Uncategorized</string>
+    
+    <!-- Reward/Punishment Summary -->
+    <string name="stats_reward_summary">%1$s Reward Summary</string>
+    <string name="stats_reward_summary_category">%1$s-%2$s Reward Summary</string>
+    <string name="stats_punishment_summary">%1$s Punishment Summary</string>
+    <string name="stats_punishment_summary_category">%1$s-%2$s Punishment Summary</string>
+    <string name="stats_no_reward_in_period">No reward obtained in this period for %1$s</string>
+    <string name="stats_no_punishment_in_period">No punishment executed in this period for %1$s</string>
+    <string name="completion_details">Completion Details</string>
+    
+    <!-- Timer/Countdown Labels -->
+    <string name="timer_label">Timer</string>
+    <string name="countdown_label">CountDown</string>
+    
+    <!-- Pie Chart Status Messages -->
+    <string name="please_set_goal_time">⚠️ Please set goal time</string>
+    <string name="today_can_use_hours">🌟 You can use %1$sh today, keep it up!</string>
+    <string name="today_need_use_hours">⚠️ Need to use %1$sh today to meet goal</string>
+    <string name="can_still_use_hours">✅ Can still use %1$sh, keep it up!</string>
+    <string name="still_need_use_hours">⚠️ Still need %1$sh to reach goal</string>
+    <string name="exceeded_goal_hours">❌ Exceeded goal by %1$sh</string>
+    <string name="completed_goal_exceeded">🎉 Goal achieved and exceeded by %1$sh, amazing!</string>
+    
+    <!-- Timer Dialog -->
+    <string name="countdown_timer_title">Countdown Timer</string>
+    <string name="start_timer">Start Timer</string>
+    <string name="start_countdown">Start Countdown</string>
+    <string name="pause_timer">Pause</string>
+    <string name="resume_timer">Resume</string>
+    <string name="stop_timer">Stop</string>
+    <string name="background_timer">Background</string>
+    <string name="test_sound">Test Sound</string>
+    <string name="cancel">Cancel</string>
+    
+    <!-- Time Units -->
+
+    
+    <!-- Categories Management -->
+    <string name="categories_management_title">APP Category Management</string>
+    <string name="all_apps">All Apps</string>
+    <string name="all_categories">All</string>
+    <string name="back_button_desc">Back</string>
+    <string name="offline_activity">Offline Activity</string>
+    
+    <!-- Operation Hints -->
+    <string name="operation_hint_title">Operation Tips</string>
+    <string name="operation_hint_edit_mode">• Display all applications in edit mode</string>
+    <string name="operation_hint_exclude_button">• Click 🚫 button to quickly exclude applications</string>
+    <string name="operation_hint_edit_button">• Click edit button to change category</string>
+    <string name="edit_mode">Edit Mode</string>
+    <string name="exclude_app">Exclude App</string>
+    <string name="edit_category">Edit Category</string>
+    
+    <!-- Yesterday Detail Dialog -->
+    <string name="yesterday_detail_title">Yesterday\'s Data Details</string>
+    <string name="usage_time_details">Usage Time Details</string>
+    <string name="online_usage">Online Usage</string>
+    <string name="offline_usage">Offline Usage</string>
+    <string name="total_usage_time">Total Usage Time</string>
+    <string name="goal_met">Goal Met</string>
+    <string name="goal_not_met">Goal Not Met</string>
+    <string name="goal_not_met_pending">Goal Not Met - Pending</string>
+    <string name="goal_not_met_completed">Goal Not Met - Completed</string>
+    <string name="reward_content_display">Reward Content</string>
+    <string name="punishment_content_display">Punishment Content</string>
+    
+    <!-- Excluded Apps -->
+    <string name="excluded_apps_title">Excluded Apps</string>
+    <string name="refresh_button_desc">Refresh</string>
+    <string name="no_excluded_apps">No Excluded Apps</string>
+    <string name="all_apps_included">All apps included in statistics</string>
+    <string name="exclusion_stats_info">Exclusion Statistics</string>
+    <string name="system_apps">System Apps</string>
+    <string name="user_apps">User Apps</string>
+    <string name="total_count">Total</string>
+    <string name="system_app_label">System App</string>
+    <string name="user_app_label">User App</string>
+    <string name="restore_app_desc">Restore Statistics</string>
+    <string name="auto_summary_all_apps">Auto-summarizes all apps</string>
+    
+    <!-- Stats Screen -->
+    <string name="stats_usage_title">Usage Stats</string>
+    <string name="stats_goal_title">Goal Stats</string>
+    <string name="stats_usage_change_title">Usage Change</string>
+    <string name="stats_usage_duration_title">Usage Duration</string>
+    <string name="stats_reward_details_title">Reward Details</string>
+    <string name="stats_punishment_details_title">Punishment Details</string>
+    <string name="show_all">Show All</string>
+    <string name="most_increased">Most Increased</string>
+    <string name="most_decreased">Most Decreased</string>
+    <string name="dialog_confirm">OK</string>
+    <string name="reward_completed_count">Rewards Completed:</string>
+    <string name="punishment_completed_count">Punishments Completed:</string>
+    <string name="punishment_content">Punishment Content</string>
+    <string name="total_completed">Total Completed</string>
+    <string name="total_obtained">Total Obtained</string>
+    <string name="expected_rewards">Expected Rewards</string>
+    <string name="completed_rewards">Completed Rewards</string>
+    <string name="expected_punishments">Expected Punishments</string>
+    <string name="completed_punishments">Completed Punishments</string>
+    
+    <!-- Time Periods - Simplified -->
+    <string name="period_today">Today</string>
+    <string name="period_yesterday">Yesterday</string>
+    <string name="period_week">Week</string>
+    <string name="period_month">Month</string>
+    <string name="period_all">All</string>
+    <string name="period_day_before_yesterday">Day Before Yesterday</string>
+    <string name="period_last_week">Last Week</string>
+    <string name="period_last_month">Last Month</string>
+    <string name="period_day_short">Day</string>
+    <string name="period_week_short">Week</string>
+    <string name="period_month_short">Month</string>
+    
+    <!-- InfoDialog Titles -->
+    <string name="info_usage_stats_title">Usage Stats Description</string>
+    <string name="info_goal_stats_title">Goal Stats Description</string>
+    <string name="info_usage_change_title">Usage Change Description</string>
+    <string name="info_usage_duration_title">Usage Duration Description</string>
+    <string name="info_reward_details_title">Reward Details Description</string>
+    <string name="info_punishment_details_title">Punishment Details Description</string>
+    
+    <!-- InfoDialog Contents -->
+    <string name="info_usage_stats_content">Shows usage time statistics for each category.\n\n• Today/Yesterday: Current day usage time\n• Week: This week\'s cumulative usage time\n• Month: This month\'s cumulative usage time\n\nTime format: hours(h) and minutes(m), e.g., 1h30m means 1 hour 30 minutes.</string>
+    <string name="info_goal_stats_content" formatted="false">Shows goal completion status for each category.\n\n• First line: Completed count : Total goal count\n• Second line: Completion percentage\n\nGoal calculation:\n• Yesterday: Fixed as 1 (yesterday 1 day)\n• Week: Days passed (excluding today)\n• Month: Days passed (excluding today)\n• All: All recorded days\n\nSpecial cases:\n• Monday/Month start shows 100% completion when denominator is 0\n• Colors: Green(100%), Orange(50-99%), Red(&lt;50%)</string>
+    <string name="info_usage_change_content">Shows app usage time change trends.\n\n• 📈 Most Increased: Apps with increased usage time compared to previous period\n• 📉 Most Decreased: Apps with decreased usage time compared to previous period\n\nComparison description:\n• Today vs Yesterday\n• Yesterday vs Day before\n• Week vs Last week\n• Month vs Last month\n\nDisplay format: ▲103m means increased 103 minutes, +15% means 15% growth</string>
+    <string name="info_usage_duration_content">Shows app usage time ranking.\n\n• Sorted by average daily usage time\n• 🥇🥈🥉 represent top three\n• Shows app name, category and usage time\n\nTime period description:\n• Today/Yesterday: Current day usage time\n• Week/Month: Average daily usage time\n• All: Average daily usage time for all recorded time\n\nClick \"Show All\" to view more app rankings.</string>
+    <string name="info_reward_details_content">Shows reward completion status for each category in different time periods.\n\n• Yesterday: Yesterday\'s reward completion\n• Week: Cumulative from Monday to today\n• Month: Cumulative from 1st to today\n• All: All since records began\n\nClick category buttons to view specific reward counts and content. Category button shows reward completion statistics below.</string>
+    <string name="info_punishment_details_content">Shows punishment completion status for each category in different time periods.\n\n• Yesterday: Yesterday\'s punishment completion\n• Week: Cumulative from Monday to today\n• Month: Cumulative from 1st to today\n• All: All since records began\n\nClick category buttons to view specific punishment counts and content. Category button shows punishment completion statistics below.</string>
+    <string name="times_unit">times</string>
+    <string name="expected_rewards_count">Expected rewards: %1$d times</string>
+    <string name="completed_rewards_count">Completed rewards: %1$d times</string>
+    <string name="expected_punishments_count">Expected punishments: %1$d times</string>
+    <string name="completed_punishments_count">Completed punishments: %1$d times</string>
+    <string name="reward_completion_ratio">%1$d/%2$d times</string>
+    <string name="punishment_completion_ratio">%1$d/%2$d times</string>
+    
+    <!-- Pie Chart Reward/Punishment Module -->
+    <string name="goal_achieved">Met</string>
+    <string name="goal_not_achieved">Unmet</string>
+    <string name="reward_button">R</string>
+    <string name="punishment_button">P</string>
+    <string name="yesterday_reward_completed">Yesterday Reward Completed</string>
+    <string name="yesterday_punishment_completed">Yesterday Punishment Completed</string>
+    
+    <!-- Goals &amp; Rewards Page -->
+    <string name="goals_rewards_title">Goals &amp; Rewards</string>
+    <string name="no_goal_data">No Goal Data</string>
+    <string name="please_set_categories_first">Please set app categories first</string>
+    <string name="target_time">Target Time</string>
+    <string name="completion_condition">Condition</string>
+    <string name="completion_reward">Reward</string>
+    <string name="incomplete_punishment">Incomplete Punishment</string>
+    <string name="default_category">Default</string>
+    <string name="no_goal_set">No Goal Set</string>
+    <string name="set_goal">Set Goal</string>
+    <string name="edit_goal">Edit Goal</string>
+    <string name="goal_settings">Goal Settings</string>
+    <string name="target_quantity">Target Qty</string>
+    <string name="less_than_target">≤ Target Time</string>
+    <string name="more_than_target">≥ Target Time</string>
+    <string name="reward_content">Reward Content</string>
+    <string name="reward_content_placeholder">e.g., chips, drinks, rest time</string>
+    <string name="quantity">Qty</string>
+    <string name="unit">Unit</string>
+    <string name="unit_placeholder">e.g., pack, piece, cup</string>
+    <string name="punishment_action">Punishment</string>
+    <string name="punishment_action_placeholder">e.g., push-ups, running, sit-ups</string>
+    <string name="save">Save</string>
+    
+    <!-- Goal Edit Dialog Additional Strings -->
+    <string name="frequency_unit">Unit</string>
+    <string name="preview_prefix">Preview: </string>
+    <string name="preview_reward_template">Every %1$s %2$s %3$s %4$s</string>
+    <string name="preview_reward_placeholder">Every %1$s [content] [quantity] [unit]</string>
+    <string name="preview_punishment_template">Every %1$s %2$s %3$s %4$s</string>
+    <string name="preview_punishment_placeholder">Every %1$s [action] [quantity] [unit]</string>
+    <string name="time_unit_day">D</string>
+    <string name="time_unit_hour">H</string>
+    <string name="time_unit_minute">M</string>
+    <string name="time_unit_second">S</string>
+    <string name="frequency_prefix">Every</string>
+    <string name="target_time_suffix">Target Time</string>
+    
+    <!-- Emoji Icons -->
+    <string name="emoji_target">🎯</string>
+    <string name="emoji_reward">🎁</string>
+    <string name="emoji_warning">⚠️</string>
+    
+    <!-- Default Reward/Punishment Values -->
+    <string name="default_reward_chips">Chips</string>
+    <string name="default_reward_pack">Pack</string>
+    <string name="default_punishment_pushups">Push-ups</string>
+    <string name="default_punishment_count">Count</string>
+    <string name="default_time_unit_minute">Minutes</string>
+    <string name="default_time_unit_hour">Hours</string>
+
+    <!-- Auto-completed missing keys, simple English translation, you can polish later -->
+    <string name="no_category_data">No category data. Please add categories on the category page.</string>
+    <string name="timer_running">Running</string>
+    <string name="today_total_time">Today Total Time</string>
+    <string name="sessions_count">Sessions</string>
+    <string name="session_unit">times</string>
+    <string name="average_duration">Average Duration</string>
+    <string name="completed_label">  └ Completed:</string>
+    <string name="current_timer_label">  └ Current Timer:</string>
+    <string name="onboarding_subtitle">Let us help you set up the app and start managing your phone usage time.</string>
+    <string name="onboarding_setup_includes">Setup includes:</string>
+    <string name="onboarding_feature_permission_title">Enable Required Permissions</string>
+    <string name="onboarding_feature_permission_desc">Usage stats, app list, notification permissions</string>
+    <string name="onboarding_feature_auto_read_title">Auto Read Apps</string>
+    <string name="onboarding_feature_auto_read_desc">Scan and categorize your apps intelligently</string>
+    <string name="onboarding_feature_start_title">Start Using</string>
+    <string name="onboarding_feature_start_desc">Finish setup and start managing your time</string>
+    <string name="onboarding_start_setup">Start Setup</string>
+    <string name="widget_custom_option_with_days">Custom (%1$d days)</string>
+    <string name="widget_custom_option">Custom</string>
+    <string name="widget_usage_hint_title">💡 Usage Instructions</string>
+    <string name="widget_usage_hint">• Dates before installation are shown as gray dashed lines
+• Dates after installation are shown as colored solid lines
+• Even if usage time is 0, a colored solid line will be shown
+• The more days, the denser the chart; it is recommended to choose an appropriate number of days</string>
+    <string name="onboarding_usage_permission_title">Usage Access Permission</string>
+    <string name="onboarding_usage_permission_desc">Used to collect app usage stats</string>
+    <string name="onboarding_permission_usage_time">Collect app usage time</string>
+    <string name="onboarding_permission_manage_habit">Manage time habits</string>
+    <string name="onboarding_permission_target_supervision">Target supervision</string>
+    <string name="onboarding_permission_step_1">Step 1</string>
+    <string name="onboarding_permission_step_2">Step 2</string>
+    <string name="onboarding_permission_step_3">Step 3</string>
+    <string name="onboarding_permission_step_4">Step 4</string>
+    <string name="onboarding_query_packages_permission_title">App List Permission</string>
+    <string name="onboarding_query_packages_permission_desc_android11">App list permission for Android 11+</string>
+    <string name="onboarding_query_packages_permission_desc_below11">App list permission for below Android 11</string>
+    <string name="onboarding_permission_basic_info">Basic info permission</string>
+    <string name="onboarding_permission_app_classification">App classification permission</string>
+    <string name="onboarding_permission_app_usage_data">App usage data permission</string>
+    <string name="onboarding_permission_step_1_android11">Android 11 Step 1</string>
+    <string name="onboarding_permission_step_2_android11">Android 11 Step 2</string>
+    <string name="onboarding_permission_step_3_android11">Android 11 Step 3</string>
+    <string name="onboarding_permission_step_1_below11">Android 10- Step 1</string>
+    <string name="onboarding_permission_step_2_below11">Android 10- Step 2</string>
+    <string name="onboarding_permission_step_3_below11">Android 10- Step 3</string>
+    <string name="onboarding_notification_permission_title">Notification Permission</string>
+    <string name="onboarding_notification_permission_desc">Used to send reminder notifications</string>
+    <string name="onboarding_permission_target_completion_reminder">Target completion reminder</string>
+    <string name="onboarding_permission_reward_punishment_reminder">Reward/punishment task reminder</string>
+    <string name="onboarding_permission_time_management_habit">Time management habit reminder</string>
+    <string name="onboarding_permission_step_1_notification">Notification Step 1</string>
+    <string name="onboarding_permission_step_2_notification">Notification Step 2</string>
+    <string name="onboarding_vibrate_permission_title">Vibration Permission</string>
+    <string name="onboarding_vibrate_permission_desc">Used for timer vibration reminders</string>
+    <string name="onboarding_permission_timer_end_vibration">Timer end vibration</string>
+    <string name="onboarding_permission_enhanced_sound_effect">Enhanced sound effect</string>
+    <string name="onboarding_permission_silent_mode_reminder">Silent mode reminder</string>
+    <string name="onboarding_permission_step_1_vibrate">Vibration Step 1</string>
+    <string name="onboarding_permission_step_2_vibrate">Vibration Step 2</string>
+    <string name="onboarding_permission_step_3_vibrate">Vibration Step 3</string>
+    <string name="onboarding_battery_optimization_permission_title">Battery Optimization Permission</string>
+    <string name="onboarding_battery_optimization_permission_desc">Used for background running</string>
+    <string name="onboarding_permission_background_usage_data">Background usage data</string>
+    <string name="onboarding_permission_real_time_widget_update">Real-time widget update</string>
+    <string name="onboarding_permission_timely_reminder">Timely reminder</string>
+    <string name="onboarding_permission_step_1_battery">Battery Step 1</string>
+    <string name="onboarding_permission_step_2_battery">Battery Step 2</string>
+    <string name="onboarding_permission_step_3_battery">Battery Step 3</string>
+    <string name="permission_usage_title">Usage Permission</string>
+    <string name="permission_how_to_enable_title">How to enable permission</string>
+    <string name="permission_granted_message">Permission granted</string>
+    <string name="permission_request_permission">Request permission</string>
+    <string name="onboarding_initializing_title">Initializing</string>
+    <string name="onboarding_initializing_desc">Initializing data</string>
+    <string name="initialization_progress_title">Initialization Progress</string>
+    <string name="initialization_will_perform_title">Will Perform</string>
+    <string name="initialization_step_scan_apps">Scan Apps</string>
+    <string name="initialization_step_smart_classification">Smart Classification</string>
+    <string name="initialization_step_auto_exclude">Auto Exclude</string>
+    <string name="initialization_step_initialize_data">Initialize Data</string>
+    <string name="initialization_step_set_default_target">Set Default Target</string>
+    <string name="initialization_start_title">Start Initialization</string>
+    <string name="initialization_init_user_data">Initializing user data...</string>
+    <string name="initialization_init_categories">Initializing app categories...</string>
+    <string name="initialization_scan_apps">Scanning phone apps...</string>
+    <string name="initialization_smart_categorize">Smart categorizing apps...</string>
+    <string name="initialization_exclude_system">Excluding system apps...</string>
+    <string name="initialization_set_default_goals">Setting default goals...</string>
+    <string name="initialization_completed">Initialization completed!</string>
+    <string name="initialization_error_prefix">Initialization error:</string>
+    <string name="onboarding_completed_title">Onboarding Completed</string>
+    <string name="onboarding_completed_desc">You have completed all setup</string>
+    <string name="onboarding_next_steps_title">Next Steps</string>
+    <string name="onboarding_next_step_view_stats">View Stats</string>
+    <string name="onboarding_next_step_manage_categories">Manage Categories</string>
+    <string name="onboarding_next_step_configure_target">Configure Target</string>
+    <string name="onboarding_next_step_start_management">Start Management</string>
+    <string name="onboarding_start_using_offtime">Start Using OffTime</string>
+    <string name="smart_reminder_assistant">Smart Reminder Assistant</string>
+    <string name="smart_reminder_subtitle">Helps you develop good time management habits</string>
+    <string name="reminder_settings">Reminder Settings</string>
+    <string name="morning_goal_reminder_title">Morning Goal Completion Reminder</string>
+    <string name="morning_goal_reminder_desc">Remind yesterday goal completion every morning</string>
+    <string name="evening_reward_reminder_title">Evening Reward/Punishment Reminder</string>
+    <string name="evening_reward_reminder_desc">Remind to complete reward/punishment tasks every evening</string>
+    <string name="reminder_explanation_title">Reminder Explanation</string>
+    <string name="morning_reminder_explanation">Morning reminder explanation</string>
+    <string name="evening_reminder_explanation">Evening reminder explanation</string>
+    <string name="only_enabled_categories_reminded">Only enabled categories are reminded</string>
+    <string name="early_open_app_reminder">Early open app reminder</string>
+    <string name="completed_tasks_no_repeat">Completed tasks are not reminded again</string>
+    <string name="notification_permission_tip">Notification Permission Tips</string>
+    <string name="reminder_time">Reminder Time</string>
+    <!-- 首次设置 -->
+    <string name="onboarding_first_setup">Initial Setup</string>
+    <string name="loading">Loading...</string>
+</resources> 

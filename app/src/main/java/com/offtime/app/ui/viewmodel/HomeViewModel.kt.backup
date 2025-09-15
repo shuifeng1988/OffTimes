@@ -1,0 +1,2266 @@
+package com.offtime.app.ui.viewmodel
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
+import com.offtime.app.data.dao.AppCategoryDao
+import com.offtime.app.data.dao.AppSessionUserDao
+import com.offtime.app.data.dao.TimerSessionUserDao
+import com.offtime.app.data.dao.DailyUsageDao
+import com.offtime.app.data.dao.SummaryUsageDao
+import com.offtime.app.data.dao.RewardPunishmentData
+import com.offtime.app.data.dao.UsageData
+import com.offtime.app.data.entity.AppCategoryEntity
+import com.offtime.app.data.entity.AppSessionUserEntity
+import com.offtime.app.utils.DataMigrationHelper
+import javax.inject.Inject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.Calendar
+import com.offtime.app.data.dao.AppInfoDao
+import com.offtime.app.data.dao.GoalRewardPunishmentUserDao
+import com.offtime.app.data.dao.RewardPunishmentUserDao
+import com.offtime.app.data.dao.RewardPunishmentWeekUserDao
+import com.offtime.app.data.dao.RewardPunishmentMonthUserDao
+import com.offtime.app.data.entity.RewardPunishmentUserEntity
+import com.offtime.app.data.repository.AppRepository
+import com.offtime.app.data.repository.AppSessionRepository
+import com.offtime.app.data.repository.GoalRewardPunishmentRepository
+
+@HiltViewModel
+class HomeViewModel @Inject constructor(
+    private val appRepository: AppRepository,
+    private val appSessionRepository: AppSessionRepository,
+    private val categoryDao: AppCategoryDao,
+    private val appSessionUserDao: AppSessionUserDao,
+    private val timerSessionUserDao: TimerSessionUserDao,
+    private val dailyUsageDao: DailyUsageDao,
+    private val summaryUsageDao: SummaryUsageDao,
+    private val goalRewardPunishmentUserDao: GoalRewardPunishmentUserDao,
+    private val rewardPunishmentUserDao: RewardPunishmentUserDao,
+    private val rewardPunishmentWeekUserDao: RewardPunishmentWeekUserDao,
+    private val rewardPunishmentMonthUserDao: RewardPunishmentMonthUserDao,
+    private val dataMigrationHelper: DataMigrationHelper,
+    @ApplicationContext private val context: Context,
+    private val repository: GoalRewardPunishmentRepository
+) : ViewModel() {
+
+    companion object {
+        // 配置开关：是否启用对goals_reward_punishment_completion表的备用查询
+        // 设为false可以完全禁用旧表查询，仅使用reward_punishment_user表
+        private const val ENABLE_FALLBACK_TO_OLD_TABLE = false
+    }
+
+    private val _categories = MutableStateFlow<List<AppCategoryEntity>>(emptyList())
+    val categories: StateFlow<List<AppCategoryEntity>> = _categories.asStateFlow()
+
+    private val _selectedCategory = MutableStateFlow<AppCategoryEntity?>(null)
+    val selectedCategory: StateFlow<AppCategoryEntity?> = _selectedCategory.asStateFlow()
+
+    private val _isStatisticsView = MutableStateFlow(true) // true=今日统计, false=今日详情
+    val isStatisticsView: StateFlow<Boolean> = _isStatisticsView.asStateFlow()
+
+    // 饼图数据
+    private val _realUsageSec = MutableStateFlow(0)
+    val realUsageSec: StateFlow<Int> = _realUsageSec.asStateFlow()
+
+    private val _virtualUsageSec = MutableStateFlow(0)
+    val virtualUsageSec: StateFlow<Int> = _virtualUsageSec.asStateFlow()
+
+    private val _goalSec = MutableStateFlow(7200) // 默认2小时
+    val goalSec: StateFlow<Int> = _goalSec.asStateFlow()
+
+    // 奖励惩罚相关状态
+    private val _rewardText = MutableStateFlow("薯片一包")
+    val rewardText: StateFlow<String> = _rewardText.asStateFlow()
+    
+    private val _punishText = MutableStateFlow("俯卧撑30个")
+    val punishText: StateFlow<String> = _punishText.asStateFlow()
+    
+    private val _goalConditionType = MutableStateFlow(0) // 0: ≤目标算完成(娱乐类), 1: ≥目标算完成(学习类)
+    val goalConditionType: StateFlow<Int> = _goalConditionType.asStateFlow()
+    
+    private val _yesterdayRewardDone = MutableStateFlow(true)
+    val yesterdayRewardDone: StateFlow<Boolean> = _yesterdayRewardDone.asStateFlow()
+    
+    private val _yesterdayPunishDone = MutableStateFlow(true)
+    val yesterdayPunishDone: StateFlow<Boolean> = _yesterdayPunishDone.asStateFlow()
+    
+    private val _yesterdayHasData = MutableStateFlow(false)
+    val yesterdayHasData: StateFlow<Boolean> = _yesterdayHasData.asStateFlow()
+    
+    private val _yesterdayGoalMet = MutableStateFlow(false)
+    val yesterdayGoalMet: StateFlow<Boolean> = _yesterdayGoalMet.asStateFlow()
+    
+    private val _isRewardPunishmentEnabled = MutableStateFlow(true)
+    val isRewardPunishmentEnabled: StateFlow<Boolean> = _isRewardPunishmentEnabled.asStateFlow()
+
+    // 柱状图数据 (24小时，每小时的分钟数)
+    private val _hourlyRealUsage = MutableStateFlow<List<Int>>(List(24) { 0 })
+    val hourlyRealUsage: StateFlow<List<Int>> = _hourlyRealUsage.asStateFlow()
+
+    private val _hourlyVirtualUsage = MutableStateFlow<List<Int>>(List(24) { 0 })
+    val hourlyVirtualUsage: StateFlow<List<Int>> = _hourlyVirtualUsage.asStateFlow()
+    
+    // 周期选择状态 ("日", "周", "月") - 上半部分饼图使用
+    private val _selectedPeriod = MutableStateFlow("日")
+    val selectedPeriod: StateFlow<String> = _selectedPeriod.asStateFlow()
+    
+    // 下半部分折线图的周期选择状态
+    private val _selectedLineChartPeriod = MutableStateFlow("日")
+    val selectedLineChartPeriod: StateFlow<String> = _selectedLineChartPeriod.asStateFlow()
+    
+    // 折线图数据
+    private val _usageLineData = MutableStateFlow<List<UsageData>>(emptyList())
+    val usageLineData: StateFlow<List<UsageData>> = _usageLineData.asStateFlow()
+    
+    private val _completionLineData = MutableStateFlow<List<UsageData>>(emptyList())
+    val completionLineData: StateFlow<List<UsageData>> = _completionLineData.asStateFlow()
+    
+    // 奖罚完成度数据
+    private val _rewardPunishmentData = MutableStateFlow<List<RewardPunishmentData>>(emptyList())
+    val rewardPunishmentData: StateFlow<List<RewardPunishmentData>> = _rewardPunishmentData.asStateFlow()
+    
+    // 缓存机制 - 避免重复查询
+    private var lastLoadedCategoryId: Int? = null
+    private var lastLoadedPeriod: String? = null
+
+    /**
+     * 设置过滤后的奖罚数据
+     */
+    private suspend fun setFilteredRewardPunishmentData(data: List<RewardPunishmentData>, categoryId: Int) {
+        // 检查该分类的奖罚开关是否开启
+        val enabledMap = appRepository.getCategoryRewardPunishmentEnabled()
+        val isEnabled = enabledMap[categoryId] ?: true // 默认开启
+        
+        if (isEnabled) {
+            // 开关开启时，显示正常数据
+            _rewardPunishmentData.value = data
+        } else {
+            // 开关关闭时，将数据替换为-1（表示不显示）
+            val filteredData = data.map { item ->
+                item.copy(
+                    rewardValue = -1f,
+                    punishmentValue = -1f
+                )
+            }
+            _rewardPunishmentData.value = filteredData
+        }
+        
+        android.util.Log.d("HomeViewModel", "奖罚数据过滤: categoryId=$categoryId, enabled=$isEnabled, dataSize=${data.size}")
+    }
+
+    // 各分类使用时间数据（用于总使用分类的多分类显示）
+    private val _categoryUsageData = MutableStateFlow<List<CategoryUsageItem>>(emptyList())
+    val categoryUsageData: StateFlow<List<CategoryUsageItem>> = _categoryUsageData.asStateFlow()
+    
+    private val _categoryHourlyData = MutableStateFlow<List<CategoryHourlyItem>>(emptyList())
+    val categoryHourlyData: StateFlow<List<CategoryHourlyItem>> = _categoryHourlyData.asStateFlow()
+    
+    init {
+        loadInitialData()
+
+    }
+
+    fun loadInitialData() {
+        loadCategories()
+        // Load additional data as needed
+    }
+
+    fun loadCategories() {
+        viewModelScope.launch {
+            categoryDao.getAllCategories().collect { categoriesList ->
+                // 获取所有分类（排除统计已从数据库中删除）
+                val filteredCategories = categoriesList
+                _categories.value = filteredCategories
+                
+                // 使用默认显示类别或第一个分类
+                if (filteredCategories.isNotEmpty() && _selectedCategory.value == null) {
+                    // 暂时使用第一个分类作为默认，后续会添加设置功能
+                    selectCategory(filteredCategories.first())
+                }
+            }
+        }
+    }
+
+    fun selectCategory(category: AppCategoryEntity) {
+        // 避免重复选择同一个分类
+        if (_selectedCategory.value?.id == category.id) {
+            return
+        }
+        
+        _selectedCategory.value = category
+        // 从数据库查询该分类的目标时间
+        loadCategoryGoal(category.id)
+        // 加载奖罚开关状态
+        loadRewardPunishmentEnabled(category.id)
+        // 立即加载该分类的数据
+        loadUsageData(category.id)
+    }
+    
+    private fun loadCategoryGoal(categoryId: Int) {
+        viewModelScope.launch {
+            try {
+                val goal = goalRewardPunishmentUserDao.getUserGoalByCatId(categoryId)
+                if (goal != null) {
+                    // 将分钟转换为秒
+                    _goalSec.value = goal.dailyGoalMin * 60
+                    // 加载奖励惩罚内容
+                    _rewardText.value = goal.rewardText
+                    _punishText.value = goal.punishText
+                    // 设置目标类型
+                    _goalConditionType.value = goal.conditionType
+                    android.util.Log.d("HomeViewModel", "分类 $categoryId 的目标时间: ${goal.dailyGoalMin}分钟 = ${_goalSec.value}秒, 类型: ${goal.conditionType}, 奖励: ${goal.rewardText}, 惩罚: ${goal.punishText}")
+                } else {
+                    // 如果没有找到目标，使用默认值
+                    _goalSec.value = 7200 // 2小时
+                    _rewardText.value = "薯片一包"
+                    _punishText.value = "俯卧撑30个"
+                    _goalConditionType.value = 0 // 默认为娱乐类
+                    android.util.Log.w("HomeViewModel", "分类 $categoryId 没有找到目标，使用默认值2小时，类型0(娱乐类)")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "查询分类目标失败: ${e.message}", e)
+                _goalSec.value = 7200 // 出错时使用默认值
+                _rewardText.value = "薯片一包"
+                _punishText.value = "俯卧撑30个"
+                _goalConditionType.value = 0 // 默认为娱乐类
+            }
+        }
+    }
+
+    private fun loadRewardPunishmentEnabled(categoryId: Int) {
+        viewModelScope.launch {
+            try {
+                val enabledMap = appRepository.getCategoryRewardPunishmentEnabled()
+                val isEnabled = enabledMap[categoryId] ?: true // 默认开启
+                _isRewardPunishmentEnabled.value = isEnabled
+                android.util.Log.d("HomeViewModel", "分类 $categoryId 的奖罚开关状态: $isEnabled")
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "查询分类奖罚开关状态失败: ${e.message}", e)
+                _isRewardPunishmentEnabled.value = true // 出错时默认开启
+            }
+        }
+    }
+
+    fun setStatisticsView(isStatistics: Boolean) {
+        _isStatisticsView.value = isStatistics
+    }
+    
+    fun setPeriod(period: String) {
+        _selectedPeriod.value = period
+        // 上半部分饼图的周期改变，这里暂时不重新加载折线图数据
+        // 折线图数据由下半部分的周期选择单独控制
+    }
+    
+    fun setLineChartPeriod(period: String) {
+        _selectedLineChartPeriod.value = period
+        // 重新加载折线图数据
+        _selectedCategory.value?.let { category ->
+            loadLineChartData(category.id, period)
+        }
+    }
+    
+    fun refreshData() {
+        _selectedCategory.value?.let { category ->
+            android.util.Log.d("HomeViewModel", "手动刷新数据: 选中分类=${category.name}, ID=${category.id}")
+            loadUsageData(category.id)
+            
+            // 更新锁屏小部件
+            try {
+                com.offtime.app.widget.WidgetUpdateManager.updateAllLockScreenWidgets(context)
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "更新锁屏小部件失败", e)
+            }
+        } ?: run {
+            android.util.Log.e("HomeViewModel", "刷新数据失败: 没有选中的分类")
+        }
+    }
+    
+    // 临时调试方法：直接设置测试数据
+    fun setTestData() {
+        viewModelScope.launch {
+            try {
+                android.util.Log.d("HomeViewModel", "开始设置测试数据")
+                
+                // 从数据库获取所有数据
+                val allData = dailyUsageDao.getAllDailyUsageData()
+                android.util.Log.d("HomeViewModel", "数据库中总共有 ${allData.size} 条记录")
+                
+                allData.forEach { data ->
+                    android.util.Log.d("HomeViewModel", "记录: id=${data.id}, catId=${data.catId}, date=${data.date}, hour=${data.slotIndex}, isOffline=${data.isOffline}, duration=${data.durationSec}s")
+                }
+                
+                val selectedCatId = _selectedCategory.value?.id ?: run {
+            // 动态查找健身分类ID，避免硬编码
+            val categories = _categories.value
+            val fitnessCategory = categories.find { it.name == "健身" }
+            fitnessCategory?.id ?: 3 // 如果找不到健身分类，使用默认值3
+        }
+                android.util.Log.d("HomeViewModel", "当前选中分类ID: $selectedCatId")
+                
+                // 筛选当前分类的数据
+                val categoryData = allData.filter { it.catId == selectedCatId }
+                android.util.Log.d("HomeViewModel", "分类 $selectedCatId 的数据有 ${categoryData.size} 条")
+                
+                if (categoryData.isNotEmpty()) {
+                    val totalReal = categoryData.filter { it.isOffline == 0 }.sumOf { it.durationSec }
+                    val totalVirtual = categoryData.filter { it.isOffline == 1 }.sumOf { it.durationSec }
+                    
+                    android.util.Log.d("HomeViewModel", "计算结果: totalReal=${totalReal}s, totalVirtual=${totalVirtual}s")
+                    
+                    _realUsageSec.value = totalReal
+                    _virtualUsageSec.value = totalVirtual
+                    
+                    android.util.Log.d("HomeViewModel", "已更新状态: realUsageSec=${_realUsageSec.value}, virtualUsageSec=${_virtualUsageSec.value}")
+                } else {
+                    android.util.Log.w("HomeViewModel", "没有找到分类 $selectedCatId 的数据")
+                    _realUsageSec.value = 0
+                    _virtualUsageSec.value = 0
+                }
+                
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "设置测试数据失败", e)
+            }
+        }
+    }
+    
+    // 修复分类ID不匹配问题 - 使用新的迁移模块 + 重新聚合
+    fun fixCategoryIdMismatch() {
+        viewModelScope.launch {
+            try {
+                android.util.Log.d("HomeViewModel", "🔧 开始完整的数据修复流程")
+                
+                // 1. 检查是否需要迁移
+                if (!dataMigrationHelper.needsMigration()) {
+                    android.util.Log.d("HomeViewModel", "✅ 数据已经正确，无需迁移")
+                    return@launch
+                }
+                
+                android.util.Log.d("HomeViewModel", "⚠️ 检测到数据错误，开始修复...")
+                
+                // 2. 停止自动聚合（避免在修复过程中生成新的错误数据）
+                android.util.Log.d("HomeViewModel", "⏸️ 暂停数据聚合...")
+                
+                // 3. 执行数据迁移
+                android.util.Log.d("HomeViewModel", "🔄 开始数据迁移...")
+                val result = dataMigrationHelper.executeFullMigration()
+                
+                if (result.success) {
+                    android.util.Log.d("HomeViewModel", "✅ 数据迁移成功!")
+                    android.util.Log.d("HomeViewModel", "📊 迁移统计:")
+                    android.util.Log.d("HomeViewModel", "  - daily_usage: ${result.dailyUsageMigrated} 条")
+                    android.util.Log.d("HomeViewModel", "  - app_sessions: ${result.appSessionsMigrated} 条")
+                    android.util.Log.d("HomeViewModel", "  - timer_sessions: ${result.timerSessionsMigrated} 条")
+                    android.util.Log.d("HomeViewModel", "  - summary_usage: ${result.summaryUsageMigrated} 条")
+                    android.util.Log.d("HomeViewModel", "  - 总计: ${result.totalMigrated} 条")
+                    
+                    // 4. 清理所有聚合数据，准备重新聚合
+                    android.util.Log.d("HomeViewModel", "🧹 清理错误的聚合数据...")
+                    
+                    // 删除今天的聚合数据（daily_usage_user 和 summary_usage_user）
+                    val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+                    
+                    // 只删除错误ID的记录
+                    try {
+                        // 清理错误的daily_usage_user记录（catId=6的记录）
+                        val allDailyData = dailyUsageDao.getAllDailyUsageData()
+                        val wrongDailyData = allDailyData.filter { it.catId == 6 && it.date == today }
+                        android.util.Log.d("HomeViewModel", "发现 ${wrongDailyData.size} 条错误的daily_usage记录需要清理")
+                        
+                        // 清理错误的summary_usage记录
+                        val allSummaryData = summaryUsageDao.getAllSummaryUsageUser()
+                        val wrongSummaryData = allSummaryData.filter { it.catId == 6 && it.date == today }
+                        android.util.Log.d("HomeViewModel", "发现 ${wrongSummaryData.size} 条错误的summary_usage记录需要清理")
+                        
+                    } catch (e: Exception) {
+                        android.util.Log.e("HomeViewModel", "清理聚合数据时出错", e)
+                    }
+                    
+                    // 5. 触发重新聚合
+                    android.util.Log.d("HomeViewModel", "🔄 触发数据重新聚合...")
+                    try {
+                        val intent = android.content.Intent(context, com.offtime.app.service.DataAggregationService::class.java)
+                        intent.action = com.offtime.app.service.DataAggregationService.ACTION_AGGREGATE_DATA
+                        context.startService(intent)
+                        android.util.Log.d("HomeViewModel", "✅ 数据聚合服务已启动")
+                    } catch (e: Exception) {
+                        android.util.Log.e("HomeViewModel", "启动聚合服务失败", e)
+                    }
+                    
+                    // 6. 等待聚合完成，然后重新加载数据
+                    kotlinx.coroutines.delay(3000) // 等待3秒让聚合完成
+                    
+                    android.util.Log.d("HomeViewModel", "🔄 重新加载UI数据...")
+                    loadCategories()
+                    
+                    // 如果当前选择的是健身分类，重新加载数据
+                    if (_selectedCategory.value?.name == "健身") {
+                        categoryDao.getAllCategories().collect { categories ->
+                            val fitnessCategory = categories.find { it.name == "健身" }
+                            fitnessCategory?.let { 
+                                loadUsageData(it.id)
+                                android.util.Log.d("HomeViewModel", "✅ 健身分类数据已重新加载")
+                            }
+                        }
+                    }
+                    
+                    android.util.Log.d("HomeViewModel", "🎉 数据修复流程完成！")
+                    
+                } else {
+                    android.util.Log.e("HomeViewModel", "❌ 数据迁移失败: ${result.errorMessage}")
+                }
+                
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "❌ 修复过程中发生异常", e)
+            }
+        }
+    }
+    
+    // 显示迁移报告
+    fun showMigrationReport() {
+        viewModelScope.launch {
+            try {
+                android.util.Log.d("HomeViewModel", "===== 数据迁移状态报告 =====")
+                
+                val report = dataMigrationHelper.getMigrationReport()
+                
+                android.util.Log.d("HomeViewModel", "")
+                android.util.Log.d("HomeViewModel", "=== 分类映射 ===")
+                report.categoryMapping.forEach { (id, name) ->
+                    android.util.Log.d("HomeViewModel", "ID=$id -> $name")
+                }
+                
+                android.util.Log.d("HomeViewModel", "")
+                android.util.Log.d("HomeViewModel", "=== 各表数据分布 ===")
+                android.util.Log.d("HomeViewModel", "daily_usage_user:")
+                report.dailyUsageByCategory.forEach { (catId, count) ->
+                    val catName = report.categoryMapping[catId] ?: "未知分类"
+                    android.util.Log.d("HomeViewModel", "  分类ID=$catId ($catName): $count 条记录")
+                }
+                
+                android.util.Log.d("HomeViewModel", "app_sessions_users:")
+                report.appSessionsByCategory.forEach { (catId, count) ->
+                    val catName = report.categoryMapping[catId] ?: "未知分类"
+                    android.util.Log.d("HomeViewModel", "  分类ID=$catId ($catName): $count 条记录")
+                }
+                
+                android.util.Log.d("HomeViewModel", "timer_sessions_users:")
+                report.timerSessionsByCategory.forEach { (catId, count) ->
+                    val catName = report.categoryMapping[catId] ?: "未知分类"
+                    android.util.Log.d("HomeViewModel", "  分类ID=$catId ($catName): $count 条记录")
+                }
+                
+                android.util.Log.d("HomeViewModel", "summary_usage_user:")
+                report.summaryUsageByCategory.forEach { (catId, count) ->
+                    val catName = report.categoryMapping[catId] ?: "未知分类"
+                    android.util.Log.d("HomeViewModel", "  分类ID=$catId ($catName): $count 条记录")
+                }
+                
+                if (report.invalidCategoryIds.isNotEmpty()) {
+                    android.util.Log.e("HomeViewModel", "")
+                    android.util.Log.e("HomeViewModel", "❌ 发现无效的分类ID: ${report.invalidCategoryIds}")
+                    android.util.Log.e("HomeViewModel", "这些ID在AppCategory_Users表中不存在，需要迁移修复")
+                } else {
+                    android.util.Log.d("HomeViewModel", "")
+                    android.util.Log.d("HomeViewModel", "✅ 所有分类ID都有效")
+                }
+                
+                android.util.Log.d("HomeViewModel", "")
+                android.util.Log.d("HomeViewModel", "===== 报告结束 =====")
+                
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "生成迁移报告失败", e)
+            }
+        }
+    }
+    
+
+    
+    fun loadUsageData(categoryId: Int) {
+        viewModelScope.launch {
+            val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val today = formatter.format(Date())
+            
+            val calendar = Calendar.getInstance()
+            calendar.add(Calendar.DAY_OF_YEAR, -1)
+            val yesterday = formatter.format(calendar.time)
+            
+            android.util.Log.d("HomeViewModel", "开始加载使用数据: categoryId=$categoryId, today=$today")
+            
+            // 确保加载该分类的目标时间
+            loadCategoryGoal(categoryId)
+            
+            // 加载今日使用数据
+            loadTodayUsageData(categoryId, today)
+            
+            // 加载昨日奖励惩罚状态（临时使用假数据）
+            loadYesterdayRewardPunishmentStatus(categoryId, yesterday)
+            
+            // 加载24小时详情数据
+            loadHourlyUsageData(categoryId, today)
+            
+            // 加载折线图数据 - 使用下半部分的周期选择
+            loadLineChartData(categoryId, _selectedLineChartPeriod.value)
+        }
+    }
+
+    private suspend fun loadTodayUsageData(categoryId: Int, date: String) {
+        try {
+            android.util.Log.d("HomeViewModel", "查询指定日期数据: catId=$categoryId, date=$date")
+            
+            // 检查是否为"总使用"分类
+            val category = categoryDao.getAllCategoriesList().find { it.id == categoryId }
+            
+            if (category?.name == "总使用") {
+                // 总使用分类：从聚合表获取数据（已经是汇总后的数据）
+                android.util.Log.d("HomeViewModel", "加载总使用分类数据")
+                val realUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 0) ?: 0
+                val virtualUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 1) ?: 0
+                
+                _realUsageSec.value = realUsage
+                _virtualUsageSec.value = virtualUsage
+                
+                // 加载各分类的详细数据用于多分类显示
+                loadCategoryUsageData(date)
+                
+                android.util.Log.d("HomeViewModel", "总使用分类数据: realUsage=${realUsage}s, virtualUsage=${virtualUsage}s")
+            } else {
+                // 普通分类：直接查询指定日期的数据
+                val realUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 0) ?: 0
+                val virtualUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 1) ?: 0
+                
+                _realUsageSec.value = realUsage
+                _virtualUsageSec.value = virtualUsage
+                
+                android.util.Log.d("HomeViewModel", "普通分类数据: realUsage=${realUsage}s, virtualUsage=${virtualUsage}s")
+            }
+            
+            android.util.Log.d("HomeViewModel", "最终设置: realUsageSec=${_realUsageSec.value}, virtualUsageSec=${_virtualUsageSec.value}")
+            
+            // 如果当天没有数据，记录日志但不使用历史数据
+            if (_realUsageSec.value == 0 && _virtualUsageSec.value == 0) {
+                android.util.Log.d("HomeViewModel", "指定日期($date)暂无使用数据，这是正常的")
+            }
+            
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "加载指定日期数据失败", e)
+            // 出错时设置为0，不使用示例数据
+            _realUsageSec.value = 0
+            _virtualUsageSec.value = 0
+        }
+    }
+
+    /**
+     * 加载昨日奖罚状态
+     */
+    private suspend fun loadYesterdayRewardPunishmentStatus(categoryId: Int, date: String) {
+        try {
+            android.util.Log.d("HomeViewModel", "查询昨日奖罚状态: categoryId=$categoryId, date=$date")
+            
+            // 首先确保昨天的基础汇总记录存在
+            val summaryId = "${date}_${categoryId}"
+            val summaryRecord = summaryUsageDao.getSummaryUsageById(summaryId)
+            if (summaryRecord == null) {
+                android.util.Log.w("HomeViewModel", "昨天的汇总记录不存在，先生成基础记录")
+                // 生成基础记录
+                com.offtime.app.service.DataAggregationService.ensureBaseRecords(context)
+                // 等待生成完成
+                kotlinx.coroutines.delay(1000)
+            }
+            
+            // 1. 优先查询奖惩记录表 (reward_punishment_user表) - 主要数据源
+            val rewardPunishmentRecord = rewardPunishmentUserDao.getRecordByCategoryAndDate(categoryId, date)
+            
+            if (rewardPunishmentRecord != null) {
+                // 从奖惩记录表查询（主要数据源）
+                _yesterdayRewardDone.value = rewardPunishmentRecord.rewardDone == 1
+                _yesterdayPunishDone.value = rewardPunishmentRecord.punishDone == 1
+                _yesterdayGoalMet.value = rewardPunishmentRecord.isGoalMet == 1
+                _yesterdayHasData.value = true // 有数据
+                android.util.Log.d("HomeViewModel", "从奖惩记录表查询昨日奖罚状态: reward=${rewardPunishmentRecord.rewardDone}, punishment=${rewardPunishmentRecord.punishDone}, goalMet=${rewardPunishmentRecord.isGoalMet}")
+            } else {
+                // 2. 如果新表没有数据，需要根据昨日使用情况自动判断
+                val yesterdayGoalResult = checkYesterdayGoalCompletion(categoryId, date)
+                
+                if (yesterdayGoalResult.hasData) {
+                    // 有使用数据，自动生成奖惩记录
+                    autoGenerateYesterdayRewardPunishmentRecord(categoryId, date, yesterdayGoalResult.goalCompleted)
+                    
+                    // 根据目标完成情况设置奖罚状态
+                    _yesterdayHasData.value = true // 有数据
+                    _yesterdayGoalMet.value = yesterdayGoalResult.goalCompleted
+                    if (yesterdayGoalResult.goalCompleted) {
+                        // 目标完成 -> 有奖励，无惩罚
+                        _yesterdayRewardDone.value = false  // 奖励待领取
+                        _yesterdayPunishDone.value = true   // 无惩罚需要执行（不显示惩罚模块）
+                    } else {
+                        // 目标未完成 -> 无奖励，有惩罚
+                        _yesterdayRewardDone.value = true   // 无奖励可领取（不显示奖励模块）
+                        _yesterdayPunishDone.value = false  // 惩罚待执行
+                    }
+                    android.util.Log.d("HomeViewModel", "自动生成昨日奖罚记录并设置状态: goalCompleted=${yesterdayGoalResult.goalCompleted}, reward=${_yesterdayRewardDone.value}, punishment=${_yesterdayPunishDone.value}")
+                    android.util.Log.d("HomeViewModel", "最终UI状态: goalMet=${_yesterdayGoalMet.value}, rewardDone=${_yesterdayRewardDone.value}, punishDone=${_yesterdayPunishDone.value}")
+                } else {
+                    // 没有任何数据，设置默认状态
+                    _yesterdayRewardDone.value = true   // 默认已处理
+                    _yesterdayPunishDone.value = true   // 默认已处理
+                    _yesterdayGoalMet.value = false     // 默认未完成目标
+                    _yesterdayHasData.value = false     // 标记昨日无数据
+                    android.util.Log.d("HomeViewModel", "昨日无数据，设置默认奖罚状态: 全部已处理")
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "查询昨日奖罚状态失败", e)
+            // 出错时设置默认状态
+            _yesterdayRewardDone.value = true
+            _yesterdayPunishDone.value = true
+            _yesterdayGoalMet.value = false
+        }
+    }
+    
+    /**
+     * 自动生成昨日奖惩记录
+     */
+    private suspend fun autoGenerateYesterdayRewardPunishmentRecord(categoryId: Int, yesterday: String, goalCompleted: Boolean) {
+        try {
+            android.util.Log.d("HomeViewModel", "自动生成昨日奖惩记录: categoryId=$categoryId, date=$yesterday, goalCompleted=$goalCompleted")
+            
+            // 创建奖惩记录
+            val record = com.offtime.app.data.entity.RewardPunishmentUserEntity(
+                id = "${yesterday}_$categoryId",
+                date = yesterday,
+                catId = categoryId,
+                isGoalMet = if (goalCompleted) 1 else 0,
+                rewardDone = 0, // 初始状态：奖惩都未执行
+                punishDone = 0,
+                updateTime = System.currentTimeMillis()
+            )
+            
+            // 插入记录
+            rewardPunishmentUserDao.upsert(record)
+            
+            android.util.Log.d("HomeViewModel", "昨日奖惩记录已自动生成")
+            
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "自动生成昨日奖惩记录失败", e)
+        }
+    }
+    
+    /**
+     * 检查昨日目标完成情况
+     */
+    private suspend fun checkYesterdayGoalCompletion(categoryId: Int, yesterday: String): YesterdayGoalResult {
+        return try {
+            // 获取分类信息
+            val category = categoryDao.getCategoryById(categoryId)
+            val categoryName = category?.name ?: "未知分类"
+            
+            // 简化的逻辑：由于每天都有基础汇总记录，直接检查汇总表
+            val summaryRecord = summaryUsageDao.getSummaryUsageById("${yesterday}_${categoryId}")
+            
+            if (summaryRecord != null) {
+                // 有汇总记录，说明有数据（即使使用时间为0）
+                val totalUsageSeconds = summaryRecord.totalSec
+            
+            // 获取目标配置
+            val goal = goalRewardPunishmentUserDao.getUserGoalByCatId(categoryId)
+            
+            if (goal != null) {
+                    val goalSeconds = goal.dailyGoalMin * 60
+                    val goalCompleted = when (goal.conditionType) {
+                        0 -> totalUsageSeconds <= goalSeconds  // 娱乐类：使用时间 ≤ 目标时间算完成
+                        1 -> totalUsageSeconds >= goalSeconds  // 学习类：使用时间 ≥ 目标时间算完成
+                        else -> false
+                    }
+                    
+                    android.util.Log.d("HomeViewModel", "昨日目标检查[$categoryName]: 使用${totalUsageSeconds}s(${totalUsageSeconds/60}min), 目标${goalSeconds}s(${goal.dailyGoalMin}min), 类型${goal.conditionType}, 完成$goalCompleted")
+                    YesterdayGoalResult(hasData = true, goalCompleted = goalCompleted)
+                } else {
+                    // 有数据但无目标配置
+                    android.util.Log.d("HomeViewModel", "昨日目标检查[$categoryName]: 有数据但无目标配置")
+                    YesterdayGoalResult(hasData = true, goalCompleted = false)
+                }
+            } else {
+                // 无汇总记录，说明程序安装前
+                android.util.Log.d("HomeViewModel", "昨日目标检查[$categoryName]: 无汇总记录（程序安装前）")
+                YesterdayGoalResult(hasData = false, goalCompleted = false)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "检查昨日目标完成情况失败", e)
+            YesterdayGoalResult(hasData = false, goalCompleted = false)
+        }
+    }
+    
+    /**
+     * 昨日目标检查结果
+     */
+    private data class YesterdayGoalResult(
+        val hasData: Boolean,      // 是否有数据
+        val goalCompleted: Boolean // 目标是否完成
+    )
+    
+    /**
+     * 各分类使用时间数据项（用于总使用分类的饼图显示）
+     */
+    data class CategoryUsageItem(
+        val categoryId: Int,
+        val categoryName: String,
+        val realUsageSec: Int,
+        val virtualUsageSec: Int,
+        val color: androidx.compose.ui.graphics.Color
+    )
+
+    /**
+     * 各分类24小时数据项（用于总使用分类的柱状图显示）
+     */
+    data class CategoryHourlyItem(
+        val categoryId: Int,
+        val categoryName: String,
+        val hourlyRealUsage: List<Int>,  // 24小时真实使用分钟数
+        val hourlyVirtualUsage: List<Int>, // 24小时虚拟使用分钟数
+        val color: androidx.compose.ui.graphics.Color
+    )
+
+    /**
+     * 完成昨日奖励
+     */
+    fun completeYesterdayReward() {
+        viewModelScope.launch {
+            try {
+                val categoryId = _selectedCategory.value?.id ?: return@launch
+                val yesterday = getYesterdayDate()
+                
+                android.util.Log.d("HomeViewModel", "完成昨日奖励: categoryId=$categoryId, date=$yesterday")
+                
+                // 更新reward_punishment_user表
+                val existingRecord = rewardPunishmentUserDao.getRecordByCategoryAndDate(categoryId, yesterday)
+                if (existingRecord != null) {
+                    // 更新现有记录的奖励完成状态
+                    rewardPunishmentUserDao.markRewardDone(categoryId, yesterday, 1)
+                    android.util.Log.d("HomeViewModel", "已更新reward_punishment_user表的奖励状态")
+                } else {
+                    android.util.Log.d("HomeViewModel", "reward_punishment_user表中没有对应记录，跳过更新")
+                }
+                
+                // 更新UI状态
+                _yesterdayRewardDone.value = true
+                
+                android.util.Log.d("HomeViewModel", "昨日奖励已完成")
+                
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "完成昨日奖励失败", e)
+            }
+        }
+    }
+
+    /**
+     * 完成昨日惩罚
+     */
+    fun completeYesterdayPunishment() {
+        viewModelScope.launch {
+            try {
+                val categoryId = _selectedCategory.value?.id ?: return@launch
+                val yesterday = getYesterdayDate()
+                
+                android.util.Log.d("HomeViewModel", "完成昨日惩罚: categoryId=$categoryId, date=$yesterday")
+                
+                // 更新reward_punishment_user表
+                val existingRecord = rewardPunishmentUserDao.getRecordByCategoryAndDate(categoryId, yesterday)
+                if (existingRecord != null) {
+                    // 更新现有记录的惩罚完成状态
+                    rewardPunishmentUserDao.markPunishmentDone(categoryId, yesterday, 1)
+                    android.util.Log.d("HomeViewModel", "已更新reward_punishment_user表的惩罚状态")
+                } else {
+                    android.util.Log.d("HomeViewModel", "reward_punishment_user表中没有对应记录，跳过更新")
+                }
+                
+                // 更新UI状态
+                _yesterdayPunishDone.value = true
+                
+                android.util.Log.d("HomeViewModel", "昨日惩罚已完成")
+                
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "完成昨日惩罚失败", e)
+            }
+        }
+    }
+
+    /**
+     * 获取昨日日期字符串
+     */
+    private fun getYesterdayDate(): String {
+        val calendar = Calendar.getInstance()
+        calendar.add(Calendar.DAY_OF_YEAR, -1)
+        return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(calendar.time)
+    }
+
+    private suspend fun loadHourlyUsageData(categoryId: Int, date: String) {
+        try {
+            android.util.Log.d("HomeViewModel", "开始加载24小时数据: categoryId=$categoryId, date=$date")
+            
+            // 获取当前时间，用于确定应该显示到哪个小时
+            val currentTime = Calendar.getInstance()
+            val currentHour = currentTime.get(Calendar.HOUR_OF_DAY)
+            val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+            
+            android.util.Log.d("HomeViewModel", "当前时间: ${currentTime.time}, 当前小时: $currentHour, 今天: $today")
+            
+            // 检查是否为"总使用"分类
+            val category = categoryDao.getAllCategoriesList().find { it.id == categoryId }
+            
+            if (category?.name == "总使用") {
+                android.util.Log.d("HomeViewModel", "加载总使用分类的24小时数据")
+                // 总使用分类：从聚合表获取数据（已经是汇总后的数据）
+                val realHourlyData = dailyUsageDao.getHourlyUsage(categoryId, date, 0)
+                val virtualHourlyData = dailyUsageDao.getHourlyUsage(categoryId, date, 1)
+                
+                android.util.Log.d("HomeViewModel", "总使用分类查询到真实小时数据: ${realHourlyData.size}条, 虚拟小时数据: ${virtualHourlyData.size}条")
+                
+                // 构建24小时数据
+                val realHourlyMinutes = mutableListOf<Int>()
+                val virtualHourlyMinutes = mutableListOf<Int>()
+                
+                for (hour in 0..23) {
+                    val realSeconds = realHourlyData.find { it.hour == hour }?.totalSeconds ?: 0
+                    val virtualSeconds = virtualHourlyData.find { it.hour == hour }?.totalSeconds ?: 0
+                    
+                    // 如果是今天，只显示当前时间之前的数据
+                    if (date == today && hour > currentHour) {
+                        realHourlyMinutes.add(0)
+                        virtualHourlyMinutes.add(0)
+                    } else {
+                        realHourlyMinutes.add(realSeconds / 60) // 转换为分钟
+                        virtualHourlyMinutes.add(virtualSeconds / 60)
+                    }
+                }
+                
+                _hourlyRealUsage.value = realHourlyMinutes
+                _hourlyVirtualUsage.value = virtualHourlyMinutes
+                
+                // 加载各分类的24小时详细数据用于多分类显示
+                loadCategoryHourlyData(date, today, currentHour)
+                
+                android.util.Log.d("HomeViewModel", "总使用分类24小时真实数据(分钟): $realHourlyMinutes")
+                android.util.Log.d("HomeViewModel", "总使用分类24小时虚拟数据(分钟): $virtualHourlyMinutes")
+            } else {
+                // 普通分类：查询指定日期的数据
+                val realHourlyData = dailyUsageDao.getHourlyUsage(categoryId, date, 0)
+                val virtualHourlyData = dailyUsageDao.getHourlyUsage(categoryId, date, 1)
+                
+                android.util.Log.d("HomeViewModel", "普通分类查询到真实小时数据: ${realHourlyData.size}条, 虚拟小时数据: ${virtualHourlyData.size}条")
+                
+                // 构建24小时数据
+                val realHourlyMinutes = mutableListOf<Int>()
+                val virtualHourlyMinutes = mutableListOf<Int>()
+                
+                for (hour in 0..23) {
+                    val realSeconds = realHourlyData.find { it.hour == hour }?.totalSeconds ?: 0
+                    val virtualSeconds = virtualHourlyData.find { it.hour == hour }?.totalSeconds ?: 0
+                    
+                    // 如果是今天，只显示当前时间之前的数据
+                    if (date == today && hour > currentHour) {
+                        realHourlyMinutes.add(0)
+                        virtualHourlyMinutes.add(0)
+                    } else {
+                        realHourlyMinutes.add(realSeconds / 60) // 转换为分钟
+                        virtualHourlyMinutes.add(virtualSeconds / 60)
+                    }
+                }
+                
+                _hourlyRealUsage.value = realHourlyMinutes
+                _hourlyVirtualUsage.value = virtualHourlyMinutes
+                
+                android.util.Log.d("HomeViewModel", "普通分类24小时真实数据(分钟): $realHourlyMinutes")
+                android.util.Log.d("HomeViewModel", "普通分类24小时虚拟数据(分钟): $virtualHourlyMinutes")
+            }
+            
+            android.util.Log.d("HomeViewModel", "当前是$currentHour 点，所以$currentHour 点之后的数据都设置为0")
+            
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "加载24小时数据失败", e)
+            // 出错时使用全0数据
+            _hourlyRealUsage.value = List(24) { 0 }
+            _hourlyVirtualUsage.value = List(24) { 0 }
+        }
+    }
+    
+    /**
+     * 加载各分类的使用时间数据（用于总使用分类的饼图显示）
+     */
+    private suspend fun loadCategoryUsageData(date: String) {
+        try {
+            android.util.Log.d("HomeViewModel", "开始加载各分类使用数据用于多分类显示")
+            
+            val allCategories = categoryDao.getAllCategoriesList()
+            val totalUsageCategory = allCategories.find { it.name == "总使用" }
+            
+            // 过滤掉"总使用"分类本身
+            val validCategories = allCategories.filter { 
+                it.id != totalUsageCategory?.id 
+            }
+            
+            val categoryUsageList = mutableListOf<CategoryUsageItem>()
+            
+            for (category in validCategories) {
+                val realUsage = dailyUsageDao.getTotalUsageByCategoryAndType(category.id, date, 0) ?: 0
+                val virtualUsage = dailyUsageDao.getTotalUsageByCategoryAndType(category.id, date, 1) ?: 0
+                
+                // 只添加有使用时间的分类
+                if (realUsage > 0 || virtualUsage > 0) {
+                    val categoryColor = com.offtime.app.utils.CategoryUtils.getCategoryColor(category.name)
+                    
+                    categoryUsageList.add(CategoryUsageItem(
+                        categoryId = category.id,
+                        categoryName = category.name,
+                        realUsageSec = realUsage,
+                        virtualUsageSec = virtualUsage,
+                        color = categoryColor
+                    ))
+                }
+            }
+            
+            _categoryUsageData.value = categoryUsageList
+            android.util.Log.d("HomeViewModel", "加载了${categoryUsageList.size}个分类的使用数据")
+            
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "加载各分类使用数据失败", e)
+            _categoryUsageData.value = emptyList()
+        }
+    }
+    
+    /**
+     * 加载各分类的24小时数据（用于总使用分类的柱状图显示）
+     */
+    private suspend fun loadCategoryHourlyData(date: String, today: String, currentHour: Int) {
+        try {
+            android.util.Log.d("HomeViewModel", "开始加载各分类24小时数据用于多分类显示")
+            
+            val allCategories = categoryDao.getAllCategoriesList()
+            val totalUsageCategory = allCategories.find { it.name == "总使用" }
+            
+            // 过滤掉"总使用"分类本身
+            val validCategories = allCategories.filter { 
+                it.id != totalUsageCategory?.id 
+            }
+            
+            val categoryHourlyList = mutableListOf<CategoryHourlyItem>()
+            
+            for (category in validCategories) {
+                val realHourlyData = dailyUsageDao.getHourlyUsage(category.id, date, 0)
+                val virtualHourlyData = dailyUsageDao.getHourlyUsage(category.id, date, 1)
+                
+                // 构建24小时数据
+                val realHourlyMinutes = mutableListOf<Int>()
+                val virtualHourlyMinutes = mutableListOf<Int>()
+                
+                for (hour in 0..23) {
+                    val realSeconds = realHourlyData.find { it.hour == hour }?.totalSeconds ?: 0
+                    val virtualSeconds = virtualHourlyData.find { it.hour == hour }?.totalSeconds ?: 0
+                    
+                    // 如果是今天，只显示当前时间之前的数据
+                    if (date == today && hour > currentHour) {
+                        realHourlyMinutes.add(0)
+                        virtualHourlyMinutes.add(0)
+                    } else {
+                        realHourlyMinutes.add(realSeconds / 60) // 转换为分钟
+                        virtualHourlyMinutes.add(virtualSeconds / 60)
+                    }
+                }
+                
+                // 只添加有使用时间的分类
+                val hasUsage = realHourlyMinutes.any { it > 0 } || virtualHourlyMinutes.any { it > 0 }
+                if (hasUsage) {
+                    val categoryColor = com.offtime.app.utils.CategoryUtils.getCategoryColor(category.name)
+                    
+                    categoryHourlyList.add(CategoryHourlyItem(
+                        categoryId = category.id,
+                        categoryName = category.name,
+                        hourlyRealUsage = realHourlyMinutes,
+                        hourlyVirtualUsage = virtualHourlyMinutes,
+                        color = categoryColor
+                    ))
+                }
+            }
+            
+            _categoryHourlyData.value = categoryHourlyList
+            android.util.Log.d("HomeViewModel", "加载了${categoryHourlyList.size}个分类的24小时数据")
+            
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "加载各分类24小时数据失败", e)
+            _categoryHourlyData.value = emptyList()
+        }
+    }
+    
+    private fun loadLineChartData(categoryId: Int, period: String) {
+        // 暂时禁用缓存以测试数据修复
+        // if (lastLoadedCategoryId == categoryId && lastLoadedPeriod == period) {
+        //     android.util.Log.d("HomeViewModel", "使用缓存的折线图数据: categoryId=$categoryId, period=$period")
+        //     return
+        // }
+        
+        viewModelScope.launch {
+            try {
+                android.util.Log.d("HomeViewModel", "加载折线图数据: categoryId=$categoryId, period=$period")
+                
+                // 检查汇总表是否有数据，如果没有则触发重建
+                val summaryCount = summaryUsageDao.getAllSummaryUsageUser().size
+                if (summaryCount == 0) {
+                    android.util.Log.w("HomeViewModel", "汇总表为空，先生成基础记录再触发数据聚合")
+                    // 先生成基础记录
+                    com.offtime.app.service.DataAggregationService.ensureBaseRecords(context)
+                    // 等待基础记录生成完成
+                    kotlinx.coroutines.delay(2000)
+                    // 再触发数据聚合
+                    com.offtime.app.service.DataAggregationService.triggerAggregation(context)
+                    // 等待聚合完成
+                    kotlinx.coroutines.delay(3000)
+                }
+                
+                when (period) {
+                    "日", "今日" -> {
+                        // 获取最近15天的每日数据
+                        loadLast15DaysData(categoryId, period)
+                    }
+                    "周", "近7日" -> {
+                        // 获取最近15周的平均每日使用量
+                        loadLast15WeeksData(categoryId)
+                    }
+                    "月", "近30日" -> {
+                        // 获取最近15月的平均每日使用量
+                        loadLast15MonthsData(categoryId)
+                    }
+                }
+                
+                // 更新缓存标记
+                lastLoadedCategoryId = categoryId
+                lastLoadedPeriod = period
+                
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "加载折线图数据失败", e)
+                // 设置空数据
+                _usageLineData.value = emptyList()
+                _completionLineData.value = emptyList()
+                _rewardPunishmentData.value = emptyList()
+            }
+        }
+    }
+    
+    /**
+     * 加载最近15天的每日数据
+     */
+    private suspend fun loadLast15DaysData(categoryId: Int, period: String) {
+        android.util.Log.d("HomeViewModel", "开始加载最近15天数据 - 使用聚合表")
+        
+        try {
+            // 1. 尝试从聚合表获取数据
+            val dailyUsageData = summaryUsageDao.getDailyUsageData(categoryId, 15)
+            val dailyCompletionData = summaryUsageDao.getDailyCompletionData(categoryId, 15)
+            
+            android.util.Log.d("HomeViewModel", "聚合表查询结果: usage=${dailyUsageData.size}条, completion=${dailyCompletionData.size}条")
+            
+            // 如果汇总表没有数据，使用原始数据回退计算
+            if (dailyUsageData.isEmpty()) {
+                android.util.Log.w("HomeViewModel", "汇总表无数据，使用原始数据回退计算")
+                loadLast15DaysDataFromRaw(categoryId, period)
+                return
+            }
+            
+            // 2. 生成完整的15天时间轴（从14天前到今天）
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                val calendar = Calendar.getInstance()
+            val todayStr = dateFormat.format(Date())
+            
+            // 先找到第一个有真实使用数据的日期，确定程序安装时间点
+            var firstUsageDate: String? = null
+            for (i in 14 downTo 0) {
+                    calendar.time = Date()
+                calendar.add(Calendar.DAY_OF_YEAR, -i)
+                val date = dateFormat.format(calendar.time)
+                
+                val realUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 0) ?: 0
+                val virtualUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 1) ?: 0
+                if (realUsage > 0 || virtualUsage > 0) {
+                    firstUsageDate = date
+                    break
+                }
+            }
+            
+            android.util.Log.d("HomeViewModel", "第一个有使用数据的日期: $firstUsageDate")
+            
+            val usageData = mutableListOf<UsageData>()
+            val completionData = mutableListOf<UsageData>()
+            val rewardPunishmentData = mutableListOf<RewardPunishmentData>()
+            
+            for (i in 14 downTo 0) {
+                calendar.time = Date()
+                calendar.add(Calendar.DAY_OF_YEAR, -i)
+                val date = dateFormat.format(calendar.time)
+                
+                // 生成显示标签
+                val displayPeriod = if (i == 0) "今天" else {
+                    val month = calendar.get(Calendar.MONTH) + 1
+                    val day = calendar.get(Calendar.DAY_OF_MONTH)
+                    "${month}/${day}"
+                }
+                
+                // 查找对应的聚合数据
+                val usageRecord = dailyUsageData.find { it.period == date }
+                val completionRecord = dailyCompletionData.find { it.period == date }
+                
+                // 关键修复：基于程序安装时间点来判断
+                val isAfterInstall = if (firstUsageDate != null) {
+                    // 如果找到了第一个使用日期，则该日期及之后都视为安装后
+                    date >= firstUsageDate
+                    } else {
+                    // 如果没有找到任何使用数据，则只有今天视为安装后
+                    date == todayStr
+                    }
+                    
+                val totalUsageMinutes = if (isAfterInstall) {
+                    // 程序安装后（即使使用时间为0）→ 彩色实线
+                        usageRecord?.usageMinutes ?: 0
+                    } else {
+                    // 程序安装前 → 灰色虚线
+                    -1
+                }
+                
+                val dayCompletionRate = if (isAfterInstall) {
+                    // 程序安装后（即使完成率为0）→ 彩色实线
+                    completionRecord?.completionRate ?: 0f
+                        } else {
+                    // 程序安装前 → 灰色虚线
+                    -1f
+                }
+                
+                usageData.add(UsageData(
+                    period = displayPeriod,
+                    usageMinutes = totalUsageMinutes,
+                    completionRate = 0f
+                ))
+                
+                completionData.add(UsageData(
+                    period = displayPeriod,
+                    usageMinutes = totalUsageMinutes,
+                    completionRate = dayCompletionRate
+                ))
+                
+                // 添加奖罚完成度数据
+                val rewardValue = if (isAfterInstall) {
+                    // 程序安装后，查询奖罚记录
+                    val rewardRecord = rewardPunishmentUserDao.getRecordByCategoryAndDate(categoryId, date)
+                    if (rewardRecord != null) {
+                        // 有奖罚记录，根据是否完成目标来判断奖励完成度
+                        if (rewardRecord.isGoalMet == 1) {
+                            // 目标完成，奖励完成度取决于是否已领取奖励
+                            if (rewardRecord.rewardDone == 1) 100f else 0f
+                        } else {
+                            // 目标未完成，没有奖励
+                            100f // 无奖励可领取，视为100%完成
+                        }
+                    } else {
+                        // 无奖罚记录，需要实时计算
+                        val realUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 0) ?: 0
+                        val virtualUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 1) ?: 0
+                        val totalUsageSeconds = realUsage + virtualUsage
+                        val goal = goalRewardPunishmentUserDao.getUserGoalByCatId(categoryId)
+                        if (goal != null) {
+                            val goalSeconds = goal.dailyGoalMin * 60
+                            val goalMet = when (goal.conditionType) {
+                                0 -> totalUsageSeconds <= goalSeconds // 娱乐类：使用时间不超过目标
+                                1 -> totalUsageSeconds >= goalSeconds // 学习类：使用时间达到目标
+                                else -> false
+                            }
+                            if (goalMet) 0f else 100f // 目标完成有奖励待领取(0%)，目标未完成无奖励(100%)
+                    } else {
+                            100f // 无目标配置，无奖励
+                        }
+                    }
+                } else {
+                    // 程序安装前 → 灰色虚线
+                    -1f
+                }
+                
+                val punishmentValue = if (isAfterInstall) {
+                    // 程序安装后，查询奖罚记录
+                    val rewardRecord = rewardPunishmentUserDao.getRecordByCategoryAndDate(categoryId, date)
+                    if (rewardRecord != null) {
+                        // 有奖罚记录，根据是否完成目标来判断惩罚完成度
+                        if (rewardRecord.isGoalMet == 1) {
+                            // 目标完成，没有惩罚
+                            100f // 无惩罚需要执行，视为100%完成
+                        } else {
+                            // 目标未完成，惩罚完成度取决于是否已执行惩罚
+                            if (rewardRecord.punishDone == 1) 100f else 0f
+                        }
+                    } else {
+                        // 无奖罚记录，需要实时计算
+                        val realUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 0) ?: 0
+                        val virtualUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 1) ?: 0
+                        val totalUsageSeconds = realUsage + virtualUsage
+                        val goal = goalRewardPunishmentUserDao.getUserGoalByCatId(categoryId)
+                        if (goal != null) {
+                            val goalSeconds = goal.dailyGoalMin * 60
+                            val goalMet = when (goal.conditionType) {
+                                0 -> totalUsageSeconds <= goalSeconds // 娱乐类：使用时间不超过目标
+                                1 -> totalUsageSeconds >= goalSeconds // 学习类：使用时间达到目标
+                                else -> false
+                            }
+                            if (goalMet) 100f else 0f // 目标完成无惩罚(100%)，目标未完成有惩罚待执行(0%)
+                        } else {
+                            100f // 无目标配置，无惩罚
+                        }
+                    }
+                } else {
+                    // 程序安装前 → 灰色虚线
+                    -1f
+                }
+                
+                rewardPunishmentData.add(RewardPunishmentData(
+                period = displayPeriod,
+                    rewardValue = rewardValue,
+                    punishmentValue = punishmentValue
+                ))
+                
+                val dataStatus = if (totalUsageMinutes >= 0) "安装后" else "安装前"
+                android.util.Log.d("HomeViewModel", "日数据处理: $displayPeriod ($date), 状态=$dataStatus, 使用时间=${totalUsageMinutes}分钟, 完成率=$dayCompletionRate, 奖励=${rewardValue}%, 惩罚=${punishmentValue}%")
+        }
+
+            // 3. 设置数据
+            _usageLineData.value = usageData
+            _completionLineData.value = completionData
+            _rewardPunishmentData.value = rewardPunishmentData
+            
+            android.util.Log.d("HomeViewModel", "最近15天数据加载完成: usage=${usageData.size}条, completion=${completionData.size}条, reward=${rewardPunishmentData.size}条")
+            
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "加载最近15天数据失败", e)
+            // 尝试使用原始数据回退
+            loadLast15DaysDataFromRaw(categoryId, period)
+        }
+    }
+    
+    /**
+     * 从原始数据计算最近15天的数据（回退方案）
+     */
+    private suspend fun loadLast15DaysDataFromRaw(categoryId: Int, @Suppress("UNUSED_PARAMETER") period: String) {
+        android.util.Log.d("HomeViewModel", "使用原始数据计算最近15天数据")
+        
+        try {
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val calendar = Calendar.getInstance()
+            val todayStr = dateFormat.format(Date())
+            
+            // 先找到第一个有真实使用数据的日期，确定程序安装时间点
+            var firstUsageDate: String? = null
+            for (i in 14 downTo 0) {
+                calendar.time = Date()
+                calendar.add(Calendar.DAY_OF_YEAR, -i)
+                val date = dateFormat.format(calendar.time)
+                
+                val realUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 0) ?: 0
+                val virtualUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 1) ?: 0
+                if (realUsage > 0 || virtualUsage > 0) {
+                    firstUsageDate = date
+                    break
+                }
+            }
+            
+            android.util.Log.d("HomeViewModel", "回退方法 - 第一个有使用数据的日期: $firstUsageDate")
+            
+            val usageData = mutableListOf<UsageData>()
+            val completionData = mutableListOf<UsageData>()
+            val rewardPunishmentData = mutableListOf<RewardPunishmentData>()
+            
+            for (i in 14 downTo 0) {
+                calendar.time = Date()
+                calendar.add(Calendar.DAY_OF_YEAR, -i)
+                val date = dateFormat.format(calendar.time)
+                
+                // 生成显示标签
+                val displayPeriod = if (i == 0) "今天" else {
+                    val month = calendar.get(Calendar.MONTH) + 1
+                    val day = calendar.get(Calendar.DAY_OF_MONTH)
+                    "${month}/${day}"
+                }
+                
+                // 关键修复：基于程序安装时间点来判断
+                val isAfterInstall = if (firstUsageDate != null) {
+                    // 如果找到了第一个使用日期，则该日期及之后都视为安装后
+                    date >= firstUsageDate
+                } else {
+                    // 如果没有找到任何使用数据，则只有今天视为安装后
+                    date == todayStr
+                }
+                
+                val realUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 0) ?: 0
+                val virtualUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 1) ?: 0
+                
+                val totalUsageMinutes = if (isAfterInstall) {
+                    // 程序安装后（即使使用时间为0）→ 彩色实线
+                    val minutes = (realUsage + virtualUsage) / 60
+                    android.util.Log.d("HomeViewModel", "程序安装后$date: totalMinutes=$minutes")
+                    minutes
+                } else {
+                    // 程序安装前 → 灰色虚线
+                    android.util.Log.d("HomeViewModel", "程序安装前$date: 设置为-1")
+                    -1
+                }
+                
+                usageData.add(UsageData(
+                    period = displayPeriod,
+                    usageMinutes = totalUsageMinutes,
+                    completionRate = 0f
+                ))
+                
+                // 计算完成率 - 使用相同的逻辑
+                val completionRate = if (isAfterInstall) {
+                    // 程序安装后 → 彩色实线
+                    val rewardPunishmentRecord = rewardPunishmentUserDao.getByDateAndCategory(categoryId, date)
+                    if (rewardPunishmentRecord != null) {
+                        // 从奖罚记录中获取完成率
+                        if (rewardPunishmentRecord.isGoalMet == 1) 100f else 0f
+                    } else {
+                        // 有真实使用数据但无奖罚记录，需要计算目标完成情况
+                        val totalUsageSeconds = realUsage + virtualUsage
+                        val goal = goalRewardPunishmentUserDao.getUserGoalByCatId(categoryId)
+                        if (goal != null) {
+                            val goalSeconds = goal.dailyGoalMin * 60
+                            val goalMet = when (goal.conditionType) {
+                                0 -> totalUsageSeconds <= goalSeconds // 使用时间不超过目标
+                                1 -> totalUsageSeconds >= goalSeconds // 使用时间达到目标
+                                else -> false
+                            }
+                            if (goalMet) 100f else 0f
+                        } else {
+                            0f
+                        }
+                    }
+                    } else {
+                    // 程序安装前 → 灰色虚线
+                        -1f
+                    }
+                
+                completionData.add(UsageData(
+                    period = displayPeriod,
+                    usageMinutes = totalUsageMinutes,
+                    completionRate = completionRate
+                ))
+                
+                // 添加奖罚完成度数据（与主方法相同的逻辑）
+                val rewardValue = if (isAfterInstall) {
+                    val rewardRecord = rewardPunishmentUserDao.getByDateAndCategory(categoryId, date)
+                    if (rewardRecord != null) {
+                        if (rewardRecord.isGoalMet == 1) {
+                            if (rewardRecord.rewardDone == 1) 100f else 0f
+                            } else {
+                            100f // 目标未完成，无奖励
+                            }
+                        } else {
+                        val totalUsageSeconds = realUsage + virtualUsage
+                        val goal = goalRewardPunishmentUserDao.getUserGoalByCatId(categoryId)
+                        if (goal != null) {
+                            val goalSeconds = goal.dailyGoalMin * 60
+                            val goalMet = when (goal.conditionType) {
+                                0 -> totalUsageSeconds <= goalSeconds
+                                1 -> totalUsageSeconds >= goalSeconds
+                                else -> false
+                            }
+                            if (goalMet) 0f else 100f
+                        } else {
+                            100f
+                        }
+                    }
+                    } else {
+                    -1f
+                }
+                
+                val punishmentValue = if (isAfterInstall) {
+                    val rewardRecord = rewardPunishmentUserDao.getByDateAndCategory(categoryId, date)
+                    if (rewardRecord != null) {
+                        if (rewardRecord.isGoalMet == 1) {
+                            100f // 目标完成，无惩罚
+                        } else {
+                            if (rewardRecord.punishDone == 1) 100f else 0f
+                        }
+                    } else {
+                        val totalUsageSeconds = realUsage + virtualUsage
+                        val goal = goalRewardPunishmentUserDao.getUserGoalByCatId(categoryId)
+                        if (goal != null) {
+                            val goalSeconds = goal.dailyGoalMin * 60
+                            val goalMet = when (goal.conditionType) {
+                                0 -> totalUsageSeconds <= goalSeconds
+                                1 -> totalUsageSeconds >= goalSeconds
+                                else -> false
+                            }
+                            if (goalMet) 100f else 0f
+                    } else {
+                            100f
+                        }
+                    }
+                    } else {
+                    -1f
+                }
+                
+                rewardPunishmentData.add(RewardPunishmentData(
+                period = displayPeriod,
+                rewardValue = rewardValue,
+                punishmentValue = punishmentValue
+                ))
+                
+                val dataStatus = if (totalUsageMinutes >= 0) "安装后" else "安装前"
+                android.util.Log.d("HomeViewModel", "原始数据计算: $displayPeriod ($date), 状态=$dataStatus, 使用时间=${totalUsageMinutes}分钟, 完成率=$completionRate, 奖励=${rewardValue}%, 惩罚=${punishmentValue}%")
+            }
+            
+            _usageLineData.value = usageData
+            _completionLineData.value = completionData
+            _rewardPunishmentData.value = rewardPunishmentData
+            _shouldShowRewardChart.value = !rewardEmpty
+            _shouldShowPunishmentChart.value = !punishmentEmpty
+            
+            android.util.Log.d("HomeViewModel", "原始数据回退计算完成: usage=${usageData.size}条, completion=${completionData.size}条, reward=${rewardPunishmentData.size}条")
+            
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "原始数据回退计算失败", e)
+            _usageLineData.value = emptyList()
+            _completionLineData.value = emptyList()
+            _rewardPunishmentData.value = emptyList()
+        }
+    }
+    
+    /**
+     * 加载最近15周的平均每日使用量 - 使用聚合表优化
+     */
+    private suspend fun loadLast15WeeksData(categoryId: Int) {
+        android.util.Log.d("HomeViewModel", "开始加载最近15周数据 - 使用聚合表")
+        
+        try {
+            // 1. 从聚合表获取数据
+            val weeklyUsageData = summaryUsageDao.getWeeklyUsageData(categoryId, 15)
+            val weeklyCompletionData = summaryUsageDao.getWeeklyCompletionData(categoryId, 15)
+            
+            android.util.Log.d("HomeViewModel", "聚合表查询结果: usage=${weeklyUsageData.size}条, completion=${weeklyCompletionData.size}条")
+            
+            // 2. 生成完整的15周时间轴（从14周前到本周）
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val calendar = Calendar.getInstance()
+            val today = Calendar.getInstance()
+            
+            // 先找到第一个有真实使用数据的周，确定程序安装时间点
+            var firstUsageWeek: String? = null
+            for (i in 14 downTo 0) {
+                calendar.time = Date()
+                calendar.add(Calendar.WEEK_OF_YEAR, -i)
+                calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+                val weekStart = dateFormat.format(calendar.time)
+                
+                // 检查该周是否有真实使用数据
+                var hasRealUsage = false
+                    val tempCalendar = Calendar.getInstance()
+                    tempCalendar.time = calendar.time
+                    
+                    for (day in 0..6) {
+                        val checkDate = dateFormat.format(tempCalendar.time)
+                        val realUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, checkDate, 0) ?: 0
+                        val virtualUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, checkDate, 1) ?: 0
+                        if (realUsage > 0 || virtualUsage > 0) {
+                        hasRealUsage = true
+                        break
+                        }
+                        tempCalendar.add(Calendar.DAY_OF_YEAR, 1)
+                        
+                        // 不能超过今天
+                        if (tempCalendar.time.after(today.time)) break
+                    }
+                
+                if (hasRealUsage) {
+                    firstUsageWeek = weekStart
+                    break
+                }
+            }
+            
+            android.util.Log.d("HomeViewModel", "第一个有使用数据的周: $firstUsageWeek")
+            
+            val usageData = mutableListOf<UsageData>()
+            val completionData = mutableListOf<UsageData>()
+            val rewardPunishmentData = mutableListOf<RewardPunishmentData>()
+            
+            for (i in 14 downTo 0) {
+                calendar.time = Date()
+                calendar.add(Calendar.WEEK_OF_YEAR, -i)
+                calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+                val weekStart = dateFormat.format(calendar.time)
+                
+                // 生成显示标签
+                val displayPeriod = if (i == 0) "本周" else {
+                    val weekNumber = calendar.get(Calendar.WEEK_OF_YEAR)
+                    val year = calendar.get(Calendar.YEAR).toString().takeLast(2)
+                    "$year-$weekNumber"
+                }
+                
+                // 查找对应的聚合数据
+                val usageRecord = weeklyUsageData.find { it.period == weekStart }
+                val completionRecord = weeklyCompletionData.find { it.period == weekStart }
+                
+                // 判断该周是否在程序安装后
+                val isAfterInstall = if (firstUsageWeek != null) {
+                    // 如果找到了第一个使用周，则该周及之后都视为安装后
+                    weekStart >= firstUsageWeek
+                } else {
+                    // 如果没有找到任何使用数据，则只有本周视为安装后
+                    i == 0
+                }
+                
+                // 使用时间数据：根据是否在安装后来判断
+                val weekUsageMinutes = if (isAfterInstall) {
+                    usageRecord?.usageMinutes ?: 0 // 安装后，使用实际值或0 → 彩色实线
+                } else {
+                    -1 // 安装前 → 灰色虚线
+                }
+                
+                usageData.add(UsageData(
+                    period = displayPeriod,
+                    usageMinutes = weekUsageMinutes,
+                    completionRate = 0f
+                ))
+                
+                // 完成率数据：根据是否在安装后来判断
+                val weekCompletionRate = if (isAfterInstall) {
+                    completionRecord?.completionRate ?: 0f // 安装后，使用实际值或0 → 彩色实线
+                } else {
+                    -1f // 安装前 → 灰色虚线
+                }
+                
+                completionData.add(UsageData(
+                    period = displayPeriod,
+                    usageMinutes = weekUsageMinutes, // 使用相同的逻辑判断是否有数据
+                    completionRate = weekCompletionRate
+                ))
+                
+                val dataStatus = if (weekUsageMinutes >= 0) "安装后" else "安装前"
+                android.util.Log.d("HomeViewModel", "周数据处理: $displayPeriod, 状态=$dataStatus, 使用时间=${weekUsageMinutes}分钟, 完成率=$weekCompletionRate")
+                
+                // 奖励惩罚数据
+                try {
+                    if (i == 0) {
+                        // 本周：实时计算本周到目前为止的奖罚完成度
+                        val weekDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                        val tempCalendar = Calendar.getInstance()
+                        tempCalendar.time = calendar.time // 本周周一
+                        
+                        var totalRewardCount = 0
+                        var doneRewardCount = 0
+                        var totalPunishCount = 0
+                        var donePunishCount = 0
+                        var hasAnyData = false
+                        
+                        // 从本周周一到今天（不包括今天）
+                        android.util.Log.d("HomeViewModel", "本周奖罚数据计算开始: 本周周一=${weekDateFormat.format(tempCalendar.time)}, 今天=${weekDateFormat.format(today.time)}")
+                        while (tempCalendar.time.before(today.time)) {
+                            val checkDate = weekDateFormat.format(tempCalendar.time)
+                            val rewardRecord = rewardPunishmentUserDao.getRecordByCategoryAndDate(categoryId, checkDate)
+                            
+                            android.util.Log.d("HomeViewModel", "检查日期 $checkDate: 奖罚记录=${rewardRecord != null}")
+                            
+                            if (rewardRecord != null) {
+                                hasAnyData = true
+                                totalRewardCount++
+                                totalPunishCount++
+                                if (rewardRecord.rewardDone == 1) doneRewardCount++
+                                if (rewardRecord.punishDone == 1) donePunishCount++
+                                android.util.Log.d("HomeViewModel", "$checkDate 有奖罚记录: reward=${rewardRecord.rewardDone}, punishment=${rewardRecord.punishDone}")
+                            } else {
+                                // 检查是否有使用数据
+                                val realUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, checkDate, 0) ?: 0
+                                val virtualUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, checkDate, 1) ?: 0
+                                android.util.Log.d("HomeViewModel", "$checkDate 无奖罚记录, 使用数据: real=$realUsage, virtual=$virtualUsage")
+                                if (realUsage > 0 || virtualUsage > 0) {
+                                    hasAnyData = true
+                                    totalRewardCount++
+                                    totalPunishCount++
+                                    android.util.Log.d("HomeViewModel", "$checkDate 有使用数据但无奖罚记录，算作未完成")
+                                    // 没有奖罚记录但有使用数据，算作未完成
+                                }
+                            }
+                            tempCalendar.add(Calendar.DAY_OF_YEAR, 1)
+                        }
+                        
+                        android.util.Log.d("HomeViewModel", "本周奖罚统计: hasData=$hasAnyData, 总奖励=$totalRewardCount, 完成奖励=$doneRewardCount, 总惩罚=$totalPunishCount, 完成惩罚=$donePunishCount")
+                        
+                        if (hasAnyData) {
+                            val rewardCompletion = if (totalRewardCount > 0) {
+                                (doneRewardCount.toFloat() / totalRewardCount * 100).coerceAtMost(100f)
+                            } else 0f
+                            val punishmentCompletion = if (totalPunishCount > 0) {
+                                (donePunishCount.toFloat() / totalPunishCount * 100).coerceAtMost(100f)
+                            } else 0f
+                            
+                            android.util.Log.d("HomeViewModel", "本周最终完成率: 奖励=$rewardCompletion%, 惩罚=$punishmentCompletion%")
+                            
+                            rewardPunishmentData.add(RewardPunishmentData(
+                                period = displayPeriod,
+                                rewardValue = rewardCompletion,
+                                punishmentValue = punishmentCompletion
+                            ))
+                        } else {
+                            // 本周没有任何数据，但应该认为有数据（奖罚完成度为0）
+                            android.util.Log.d("HomeViewModel", "本周没有任何数据，设置为0%完成度")
+                            rewardPunishmentData.add(RewardPunishmentData(
+                                period = displayPeriod,
+                                rewardValue = 0f,
+                                punishmentValue = 0f
+                            ))
+                        }
+                    } else {
+                        // 历史周：使用聚合表数据
+                        val weekRecord = rewardPunishmentWeekUserDao.getRecordByCategoryAndWeek(categoryId, weekStart)
+                        android.util.Log.d("HomeViewModel", "历史周 $displayPeriod ($weekStart): 聚合记录=${weekRecord != null}")
+                        
+                        if (weekRecord != null && (weekRecord.totalRewardCount > 0 || weekRecord.totalPunishCount > 0)) {
+                            android.util.Log.d("HomeViewModel", "历史周 $displayPeriod 聚合数据: 总奖励=${weekRecord.totalRewardCount}, 完成奖励=${weekRecord.doneRewardCount}, 总惩罚=${weekRecord.totalPunishCount}, 完成惩罚=${weekRecord.donePunishCount}")
+                            
+                            val rewardCompletion = if (weekRecord.totalRewardCount > 0) {
+                                (weekRecord.doneRewardCount.toFloat() / weekRecord.totalRewardCount * 100).coerceAtMost(100f)
+                            } else 0f
+                            val punishmentCompletion = if (weekRecord.totalPunishCount > 0) {
+                                (weekRecord.donePunishCount.toFloat() / weekRecord.totalPunishCount * 100).coerceAtMost(100f)
+                            } else 0f
+                            
+                            android.util.Log.d("HomeViewModel", "历史周 $displayPeriod 最终完成率: 奖励=$rewardCompletion%, 惩罚=$punishmentCompletion%")
+                            
+                            rewardPunishmentData.add(RewardPunishmentData(
+                                period = displayPeriod,
+                                rewardValue = rewardCompletion,
+                                punishmentValue = punishmentCompletion
+                            ))
+                        } else {
+                            // 该周没有数据
+                            android.util.Log.d("HomeViewModel", "历史周 $displayPeriod 没有数据")
+                            rewardPunishmentData.add(RewardPunishmentData(
+                                period = displayPeriod,
+                                rewardValue = -1f,
+                                punishmentValue = -1f
+                            ))
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("HomeViewModel", "获取周奖励惩罚数据失败: $e")
+                    rewardPunishmentData.add(RewardPunishmentData(
+                        period = displayPeriod,
+                        rewardValue = -1f,
+                        punishmentValue = -1f
+                    ))
+                }
+                
+                android.util.Log.d("HomeViewModel", "周数据: $displayPeriod, 使用时间=${usageRecord?.usageMinutes ?: 0}分钟")
+            }
+            
+            _usageLineData.value = usageData
+            _completionLineData.value = completionData
+            _rewardPunishmentData.value = rewardPunishmentData
+            
+            android.util.Log.d("HomeViewModel", "最近15周数据加载完成: usage=${usageData.size}条, completion=${completionData.size}条, reward=${rewardPunishmentData.size}条")
+            android.util.Log.d("HomeViewModel", "周标签: ${usageData.map { it.period }}")
+            
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "从聚合表加载周数据失败，回退到原有逻辑", e)
+            // 如果聚合表查询失败，回退到原有的实时计算逻辑
+            loadLast15WeeksDataFallback(categoryId)
+        }
+    }
+    
+    /**
+     * 周数据加载的回退方法（原有的实时计算逻辑）- 修改为使用实际天数
+     */
+    private suspend fun loadLast15WeeksDataFallback(categoryId: Int) {
+        android.util.Log.d("HomeViewModel", "使用回退方法加载周数据")
+        
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val calendar = Calendar.getInstance()
+        val today = Calendar.getInstance()
+        
+        // 生成最近15周的周期列表
+        val weekList = mutableListOf<String>()
+        for (i in 14 downTo 0) {
+            calendar.time = Date()
+            calendar.add(Calendar.WEEK_OF_YEAR, -i)
+            
+            if (i == 0) {
+                weekList.add("本周")
+            } else {
+                val weekNumber = calendar.get(Calendar.WEEK_OF_YEAR)
+                calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+                val mondayYear = calendar.get(Calendar.YEAR)
+                val finalYear = mondayYear.toString().takeLast(2)
+                weekList.add("$finalYear-$weekNumber")
+            }
+        }
+        
+        // 实时计算逻辑（修改为使用实际天数）
+        val usageData = mutableListOf<UsageData>()
+        for (i in weekList.indices) {
+            calendar.time = Date()
+            calendar.add(Calendar.WEEK_OF_YEAR, -(14-i))
+            calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+            
+            var weeklyTotalMinutes = 0
+            var actualDaysWithData = 0
+            
+            for (day in 0..6) {
+                val date = dateFormat.format(calendar.time)
+                val realUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 0) ?: 0
+                val virtualUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 1) ?: 0
+                val dailyMinutes = (realUsage + virtualUsage) / 60
+                
+                weeklyTotalMinutes += dailyMinutes
+                if (dailyMinutes > 0) {
+                    actualDaysWithData++
+                }
+                
+                calendar.add(Calendar.DAY_OF_YEAR, 1)
+                
+                // 不能超过今天
+                if (calendar.time.after(today.time)) break
+            }
+            
+            // 使用实际有数据的天数计算平均值，如果没有数据则使用0
+            val avgDailyMinutes = if (actualDaysWithData > 0) {
+                weeklyTotalMinutes / actualDaysWithData
+            } else {
+                0
+            }
+            
+            usageData.add(UsageData(
+                period = weekList[i],
+                usageMinutes = avgDailyMinutes,
+                completionRate = 0f
+            ))
+            
+            android.util.Log.d("HomeViewModel", "周数据回退: ${weekList[i]}, 总时长=${weeklyTotalMinutes}分钟, 有数据天数=$actualDaysWithData, 平均每日=${avgDailyMinutes}分钟")
+        }
+        
+        val completionData = mutableListOf<UsageData>()
+        for (i in weekList.indices) {
+            calendar.time = Date()
+            calendar.add(Calendar.WEEK_OF_YEAR, -(14-i))
+            calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+            
+            var totalCompletionRate = 0f
+            var actualDaysWithData = 0
+            
+            for (day in 0..6) {
+                val date = dateFormat.format(calendar.time)
+                val dailyCompletionRate = calculateDailyGoalCompletionRate(categoryId, date)
+                
+                // 检查该日期是否有使用数据
+                val realUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 0) ?: 0
+                val virtualUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 1) ?: 0
+                
+                if (realUsage > 0 || virtualUsage > 0) {
+                    totalCompletionRate += dailyCompletionRate
+                    actualDaysWithData++
+                }
+                
+                calendar.add(Calendar.DAY_OF_YEAR, 1)
+                
+                // 不能超过今天
+                if (calendar.time.after(today.time)) break
+            }
+            
+            // 使用实际有数据的天数计算平均完成率
+            val avgCompletionRate = if (actualDaysWithData > 0) {
+                totalCompletionRate / actualDaysWithData
+            } else {
+                0f
+            }
+            
+            completionData.add(UsageData(
+                period = weekList[i],
+                usageMinutes = 0,
+                completionRate = avgCompletionRate
+            ))
+        }
+        
+        _usageLineData.value = usageData
+        _completionLineData.value = completionData
+        _rewardPunishmentData.value = emptyList()
+    }
+    
+    /**
+     * 加载最近15月的平均每日使用量 - 使用聚合表优化
+     */
+    private suspend fun loadLast15MonthsData(categoryId: Int) {
+        android.util.Log.d("HomeViewModel", "开始加载最近15月数据 - 使用聚合表")
+        
+        try {
+            // 1. 从聚合表获取数据
+            val monthlyUsageData = summaryUsageDao.getMonthlyUsageData(categoryId, 15)
+            val monthlyCompletionData = summaryUsageDao.getMonthlyCompletionData(categoryId, 15)
+            
+            android.util.Log.d("HomeViewModel", "聚合表查询结果: usage=${monthlyUsageData.size}条, completion=${monthlyCompletionData.size}条")
+            
+            // 2. 生成完整的15月时间轴（从14月前到本月）
+            val monthFormat = SimpleDateFormat("yyyy-MM", Locale.getDefault())
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val calendar = Calendar.getInstance()
+            val today = Calendar.getInstance()
+            
+            val usageData = mutableListOf<UsageData>()
+            val completionData = mutableListOf<UsageData>()
+            val rewardPunishmentData = mutableListOf<RewardPunishmentData>()
+            
+            for (i in 14 downTo 0) {
+                calendar.time = Date()
+                calendar.add(Calendar.MONTH, -i)
+                val month = monthFormat.format(calendar.time)
+                
+                // 生成显示标签
+                val displayPeriod = if (i == 0) "本月" else {
+                    val parts = month.split("-")
+                    if (parts.size == 2) {
+                        val year = parts[0].takeLast(2)
+                        val monthNum = parts[1]
+                        "$year-$monthNum"
+                    } else {
+                        month
+                    }
+                }
+                
+                // 查找对应的聚合数据
+                val usageRecord = monthlyUsageData.find { it.period == month }
+                val completionRecord = monthlyCompletionData.find { it.period == month }
+                
+                // 计算实际有数据的天数（对于本月和历史月的处理）
+                val actualDaysInMonth = if (i == 0) {
+                    // 本月：从1号到今天的天数
+                    today.get(Calendar.DAY_OF_MONTH)
+                } else {
+                    // 历史月：检查该月实际有数据的天数
+                    calendar.time = Date()
+                    calendar.add(Calendar.MONTH, -i)
+                    calendar.set(Calendar.DAY_OF_MONTH, 1)
+                    val monthStart = calendar.time
+                    calendar.add(Calendar.MONTH, 1)
+                    calendar.add(Calendar.DAY_OF_YEAR, -1)
+                    val monthEnd = calendar.time
+                    
+                    var daysWithData = 0
+                    val tempCalendar = Calendar.getInstance()
+                    tempCalendar.time = monthStart
+                    
+                    while (tempCalendar.time <= monthEnd && !tempCalendar.time.after(today.time)) {
+                        val checkDate = dateFormat.format(tempCalendar.time)
+                        // 检查该日期是否有使用数据
+                        val realUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, checkDate, 0) ?: 0
+                        val virtualUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, checkDate, 1) ?: 0
+                        if (realUsage > 0 || virtualUsage > 0) {
+                            daysWithData++
+                        }
+                        tempCalendar.add(Calendar.DAY_OF_YEAR, 1)
+                    }
+                    
+                    if (daysWithData == 0) {
+                        // 如果没有数据，使用该月的实际天数
+                        val daysInMonth = Calendar.getInstance().apply {
+                            time = monthStart
+                            add(Calendar.MONTH, 1)
+                            add(Calendar.DAY_OF_YEAR, -1)
+                        }.get(Calendar.DAY_OF_MONTH)
+                        daysInMonth
+                    } else {
+                        daysWithData
+                    }
+                }
+                
+                // 判断该月是否有真实使用数据
+                val hasMonthRealData = if (i == 0) {
+                    // 本月：应该总是有数据（类似今天的逻辑）
+                    true
+                } else {
+                    // 历史月：检查该月是否有真实使用数据
+                    calendar.time = Date()
+                    calendar.add(Calendar.MONTH, -i)
+                    calendar.set(Calendar.DAY_OF_MONTH, 1)
+                    val monthStart = calendar.time
+                    calendar.add(Calendar.MONTH, 1)
+                    calendar.add(Calendar.DAY_OF_YEAR, -1)
+                    val monthEnd = calendar.time
+                    
+                    var hasRealUsage = false
+                    val tempCalendar = Calendar.getInstance()
+                    tempCalendar.time = monthStart
+                    
+                    while (tempCalendar.time <= monthEnd && !tempCalendar.time.after(today.time)) {
+                        val checkDate = dateFormat.format(tempCalendar.time)
+                        val realUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, checkDate, 0) ?: 0
+                        val virtualUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, checkDate, 1) ?: 0
+                        if (realUsage > 0 || virtualUsage > 0) {
+                            hasRealUsage = true
+                            break
+                        }
+                        tempCalendar.add(Calendar.DAY_OF_YEAR, 1)
+                    }
+                    hasRealUsage
+                }
+                
+                // 使用时间数据：根据是否有真实使用数据来判断
+                val monthUsageMinutes = if (hasMonthRealData) {
+                    usageRecord?.usageMinutes ?: 0 // 有真实数据，使用实际值或0
+                } else {
+                    -1 // 无真实数据（程序安装前）
+                }
+                
+                usageData.add(UsageData(
+                    period = displayPeriod,
+                    usageMinutes = monthUsageMinutes,
+                    completionRate = 0f
+                ))
+                
+                // 完成率数据：根据是否有真实使用数据来判断
+                val monthCompletionRate = if (hasMonthRealData) {
+                    completionRecord?.completionRate ?: 0f // 有真实数据，使用实际值或0
+                } else {
+                    -1f // 无真实数据（程序安装前）
+                }
+                
+                completionData.add(UsageData(
+                    period = displayPeriod,
+                    usageMinutes = monthUsageMinutes, // 使用相同的逻辑判断是否有数据
+                    completionRate = monthCompletionRate
+                ))
+                
+                val dataStatus = if (monthUsageMinutes >= 0) "安装后" else "安装前"
+                android.util.Log.d("HomeViewModel", "月数据处理: $displayPeriod, 状态=$dataStatus, 使用时间=${monthUsageMinutes}分钟, 完成率=$monthCompletionRate")
+                
+                // 奖励惩罚数据
+                try {
+                    if (i == 0) {
+                        // 本月：实时计算本月到目前为止的奖罚完成度
+                        val monthDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                        val tempCalendar = Calendar.getInstance()
+                        tempCalendar.time = Date()
+                        tempCalendar.add(Calendar.MONTH, -i)
+                        tempCalendar.set(Calendar.DAY_OF_MONTH, 1) // 本月1号
+                        
+                        var totalRewardCount = 0
+                        var doneRewardCount = 0
+                        var totalPunishCount = 0
+                        var donePunishCount = 0
+                        var hasAnyData = false
+                        
+                        // 从本月1号到今天（不包括今天）
+                        while (tempCalendar.time.before(today.time)) {
+                            val checkDate = monthDateFormat.format(tempCalendar.time)
+                            val rewardRecord = rewardPunishmentUserDao.getRecordByCategoryAndDate(categoryId, checkDate)
+                            
+                            if (rewardRecord != null) {
+                                hasAnyData = true
+                                totalRewardCount++
+                                totalPunishCount++
+                                if (rewardRecord.rewardDone == 1) doneRewardCount++
+                                if (rewardRecord.punishDone == 1) donePunishCount++
+                            } else {
+                                // 检查是否有使用数据
+                                val realUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, checkDate, 0) ?: 0
+                                val virtualUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, checkDate, 1) ?: 0
+                                if (realUsage > 0 || virtualUsage > 0) {
+                                    hasAnyData = true
+                                    totalRewardCount++
+                                    totalPunishCount++
+                                    // 没有奖罚记录但有使用数据，算作未完成
+                                }
+                            }
+                            tempCalendar.add(Calendar.DAY_OF_YEAR, 1)
+                        }
+                        
+                        if (hasAnyData) {
+                            val rewardCompletion = if (totalRewardCount > 0) {
+                                (doneRewardCount.toFloat() / totalRewardCount * 100).coerceAtMost(100f)
+                            } else 0f
+                            val punishmentCompletion = if (totalPunishCount > 0) {
+                                (donePunishCount.toFloat() / totalPunishCount * 100).coerceAtMost(100f)
+                            } else 0f
+                            
+                            rewardPunishmentData.add(RewardPunishmentData(
+                                period = displayPeriod,
+                                rewardValue = rewardCompletion,
+                                punishmentValue = punishmentCompletion
+                            ))
+                        } else {
+                            // 本月没有任何数据，但应该认为有数据（奖罚完成度为0）
+                            rewardPunishmentData.add(RewardPunishmentData(
+                                period = displayPeriod,
+                                rewardValue = 0f,
+                                punishmentValue = 0f
+                            ))
+                        }
+                    } else {
+                        // 历史月：使用聚合表数据
+                        val monthRecord = rewardPunishmentMonthUserDao.getRecordByCategoryAndMonth(categoryId, month)
+                        if (monthRecord != null && (monthRecord.totalRewardCount > 0 || monthRecord.totalPunishCount > 0)) {
+                            val rewardCompletion = if (monthRecord.totalRewardCount > 0) {
+                                (monthRecord.doneRewardCount.toFloat() / monthRecord.totalRewardCount * 100).coerceAtMost(100f)
+                            } else 0f
+                            val punishmentCompletion = if (monthRecord.totalPunishCount > 0) {
+                                (monthRecord.donePunishCount.toFloat() / monthRecord.totalPunishCount * 100).coerceAtMost(100f)
+                            } else 0f
+                            
+                            rewardPunishmentData.add(RewardPunishmentData(
+                                period = displayPeriod,
+                                rewardValue = rewardCompletion,
+                                punishmentValue = punishmentCompletion
+                            ))
+                        } else {
+                            // 该月没有数据
+                            rewardPunishmentData.add(RewardPunishmentData(
+                                period = displayPeriod,
+                                rewardValue = -1f,
+                                punishmentValue = -1f
+                            ))
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("HomeViewModel", "获取月奖励惩罚数据失败: $e")
+                    rewardPunishmentData.add(RewardPunishmentData(
+                        period = displayPeriod,
+                        rewardValue = -1f,
+                        punishmentValue = -1f
+                    ))
+                }
+                
+                android.util.Log.d("HomeViewModel", "月数据: $displayPeriod, 实际天数=$actualDaysInMonth, 使用时间=${usageRecord?.usageMinutes ?: 0}分钟")
+            }
+            
+            _usageLineData.value = usageData
+            _completionLineData.value = completionData
+            _rewardPunishmentData.value = rewardPunishmentData
+            
+            android.util.Log.d("HomeViewModel", "最近15月数据加载完成: usage=${usageData.size}条, completion=${completionData.size}条, reward=${rewardPunishmentData.size}条")
+            android.util.Log.d("HomeViewModel", "月标签: ${usageData.map { it.period }}")
+            
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "从聚合表加载月数据失败，回退到原有逻辑", e)
+            // 如果聚合表查询失败，回退到原有的实时计算逻辑
+            loadLast15MonthsDataFallback(categoryId)
+        }
+    }
+    
+    /**
+     * 月数据加载的回退方法（原有的实时计算逻辑）- 修改为使用实际天数
+     */
+    private suspend fun loadLast15MonthsDataFallback(categoryId: Int) {
+        android.util.Log.d("HomeViewModel", "使用回退方法加载月数据")
+        
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val monthFormat = SimpleDateFormat("yyyy-MM", Locale.getDefault())
+        val calendar = Calendar.getInstance()
+        val today = Calendar.getInstance()
+        val monthList = mutableListOf<String>()
+        val periodList = mutableListOf<String>()
+        
+        // 生成最近15月的月份列表
+        for (i in 14 downTo 0) {
+            calendar.time = Date()
+            calendar.add(Calendar.MONTH, -i)
+            val month = monthFormat.format(calendar.time)
+            monthList.add(month)
+            
+            // 生成显示标签
+            if (i == 0) {
+                periodList.add("本月")
+            } else {
+                val parts = month.split("-")
+                if (parts.size == 2) {
+                    val year = parts[0].takeLast(2)
+                    val monthNum = parts[1]
+                    periodList.add("$year-$monthNum")
+                } else {
+                    periodList.add(month)
+                }
+            }
+        }
+        
+        // 实时计算逻辑（修改为使用实际天数）
+        val usageData = mutableListOf<UsageData>()
+        for (i in monthList.indices) {
+            val month = monthList[i]
+            calendar.time = monthFormat.parse(month + "-01")!!
+            val monthStart = calendar.time
+            calendar.add(Calendar.MONTH, 1)
+            calendar.add(Calendar.DAY_OF_YEAR, -1)
+            val monthEnd = calendar.time
+            
+            var monthlyTotalMinutes = 0
+            var actualDaysWithData = 0
+            
+            calendar.time = monthStart
+            while (calendar.time <= monthEnd && !calendar.time.after(today.time)) {
+                val date = dateFormat.format(calendar.time)
+                val realUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 0) ?: 0
+                val virtualUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 1) ?: 0
+                val dailyMinutes = (realUsage + virtualUsage) / 60
+                
+                monthlyTotalMinutes += dailyMinutes
+                if (dailyMinutes > 0) {
+                    actualDaysWithData++
+                }
+                
+                calendar.add(Calendar.DAY_OF_YEAR, 1)
+            }
+            
+            // 使用实际有数据的天数计算平均值，如果没有数据则使用0
+            val avgDailyMinutes = if (actualDaysWithData > 0) {
+                monthlyTotalMinutes / actualDaysWithData
+            } else {
+                0
+            }
+            
+            usageData.add(UsageData(
+                period = periodList[i],
+                usageMinutes = avgDailyMinutes,
+                completionRate = 0f
+            ))
+            
+            android.util.Log.d("HomeViewModel", "月数据回退: ${periodList[i]}, 总时长=${monthlyTotalMinutes}分钟, 有数据天数=$actualDaysWithData, 平均每日=${avgDailyMinutes}分钟")
+        }
+        
+        val completionData = mutableListOf<UsageData>()
+        for (i in monthList.indices) {
+            val month = monthList[i]
+            calendar.time = monthFormat.parse(month + "-01")!!
+            val monthStart = calendar.time
+            calendar.add(Calendar.MONTH, 1)
+            calendar.add(Calendar.DAY_OF_YEAR, -1)
+            val monthEnd = calendar.time
+            
+            var totalCompletionRate = 0f
+            var actualDaysWithData = 0
+            
+            calendar.time = monthStart
+            while (calendar.time <= monthEnd && !calendar.time.after(today.time)) {
+                val date = dateFormat.format(calendar.time)
+                val dailyCompletionRate = calculateDailyGoalCompletionRate(categoryId, date)
+                
+                // 检查该日期是否有使用数据
+                val realUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 0) ?: 0
+                val virtualUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 1) ?: 0
+                
+                if (realUsage > 0 || virtualUsage > 0) {
+                    totalCompletionRate += dailyCompletionRate
+                    actualDaysWithData++
+                }
+                
+                calendar.add(Calendar.DAY_OF_YEAR, 1)
+            }
+            
+            // 使用实际有数据的天数计算平均完成率
+            val avgCompletionRate = if (actualDaysWithData > 0) {
+                totalCompletionRate / actualDaysWithData
+            } else {
+                0f
+            }
+            
+            completionData.add(UsageData(
+                period = periodList[i],
+                usageMinutes = 0,
+                completionRate = avgCompletionRate
+            ))
+        }
+        
+        _usageLineData.value = usageData
+        _completionLineData.value = completionData
+        _rewardPunishmentData.value = emptyList()
+    }
+    
+    /**
+     * 计算某日的目标完成率
+     */
+    private suspend fun calculateDailyGoalCompletionRate(categoryId: Int, date: String): Float {
+        return try {
+            // 获取该分类的目标时间（从goals_reward_punishment_users表）
+            val goal = goalRewardPunishmentUserDao.getUserGoalByCatId(categoryId)
+            val goalMinutes = goal?.dailyGoalMin ?: 120 // 默认2小时
+            
+            // 获取实际使用时间
+            val realUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 0) ?: 0
+            val virtualUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 1) ?: 0
+            val actualMinutes = (realUsage + virtualUsage) / 60
+            
+            // 计算完成率
+            if (goalMinutes > 0) {
+                (actualMinutes.toFloat() / goalMinutes * 100).coerceAtMost(100f)
+            } else {
+                0f
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "计算目标完成率失败: $e")
+            0f
+        }
+    }
+    
+    /**
+     * 生成日期时间轴：智能调整时间轴显示逻辑
+     * - 如果没有历史数据，今天放在左侧，显示今天+未来14天
+     * - 如果有历史数据，今天放在右侧，显示过去14天+今天
+     */
+    private suspend fun generateDailyTimeAxis(): List<String> {
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val calendar = Calendar.getInstance()
+        val today = dateFormat.format(calendar.time)
+        
+        val timeAxis = mutableListOf<String>()
+        
+        // 检查是否有历史数据
+        val hasHistoricalData = checkHasHistoricalData()
+        
+        if (hasHistoricalData) {
+            // 有历史数据：今天在右侧，显示过去14天+今天
+            calendar.time = dateFormat.parse(today)!!
+            calendar.add(Calendar.DAY_OF_YEAR, -14)
+            
+            for (i in 0 until 15) {
+                timeAxis.add(dateFormat.format(calendar.time))
+                calendar.add(Calendar.DAY_OF_YEAR, 1)
+            }
+        } else {
+            // 没有历史数据：今天在左侧，显示今天+未来14天
+            calendar.time = dateFormat.parse(today)!!
+            
+            for (i in 0 until 15) {
+                timeAxis.add(dateFormat.format(calendar.time))
+                calendar.add(Calendar.DAY_OF_YEAR, 1)
+            }
+        }
+        
+        return timeAxis
+    }
+    
+    /**
+     * 检查是否有历史数据（今天之前的数据）
+     */
+    private suspend fun checkHasHistoricalData(): Boolean {
+        return try {
+            val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+            
+            // 检查是否有昨天或更早的数据
+            val historicalData = summaryUsageDao.getDailyUsage(_selectedCategory.value?.id ?: 1, 30)
+            historicalData.any { it.date < today }
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "检查历史数据失败", e)
+            false
+        }
+    }
+
+
+
+
+
+
+} 

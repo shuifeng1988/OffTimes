@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 高密度屏幕（hdpi）适配 - 密度系数 1.0 -->
+    <!-- 针对5.7英寸屏幕(Pixel 5)的特殊适配 -->
+    
+    <!-- 基础间距 -->
+    <dimen name="spacing_xs">2dp</dimen>
+    <dimen name="spacing_sm">3dp</dimen>
+    <dimen name="spacing_md">6dp</dimen>
+    <dimen name="spacing_lg">10dp</dimen>
+    <dimen name="spacing_xl">14dp</dimen>
+    <dimen name="spacing_xxl">20dp</dimen>
+    
+    <!-- 内边距 -->
+    <dimen name="padding_sm">6dp</dimen>
+    <dimen name="padding_md">10dp</dimen>
+    <dimen name="padding_lg">14dp</dimen>
+    <dimen name="padding_xl">18dp</dimen>
+    
+    <!-- 组件尺寸 -->
+    <dimen name="icon_size_sm">14dp</dimen>
+    <dimen name="icon_size_md">20dp</dimen>
+    <dimen name="icon_size_lg">28dp</dimen>
+    <dimen name="button_height">44dp</dimen>
+    <dimen name="card_elevation">3dp</dimen>
+    <dimen name="corner_radius">6dp</dimen>
+    
+    <!-- 图表尺寸 - 为5.7英寸屏幕优化 -->
+    <dimen name="chart_height">140dp</dimen>
+    <dimen name="pie_chart_height">170dp</dimen>
+    <dimen name="bar_chart_height">120dp</dimen>
+    
+    <!-- Widget专用图表尺寸 -->
+    <dimen name="widget_chart_height">120dp</dimen>
+    <dimen name="widget_chart_width">240dp</dimen>
+    <dimen name="widget_icon_size">20dp</dimen>  <!-- 从18dp增加到20dp -->
+    
+    <!-- 字体大小 - 为5.7英寸屏幕优化 -->
+    <dimen name="text_size_xs">9sp</dimen>
+    <dimen name="text_size_sm">11sp</dimen>
+    <dimen name="text_size_md">13sp</dimen>
+    <dimen name="text_size_lg">15sp</dimen>
+    <dimen name="text_size_xl">18sp</dimen>
+    <dimen name="text_size_xxl">22sp</dimen>
+    
+    <!-- Widget专用字体大小 - 增大2sp -->
+    <dimen name="widget_text_size_sm">12sp</dimen>  <!-- 从10sp增加到12sp -->
+    <dimen name="widget_text_size_md">14sp</dimen>  <!-- 从12sp增加到14sp -->
+    <dimen name="widget_text_size_lg">16sp</dimen>  <!-- 从14sp增加到16sp -->
+    
+    <!-- 线条粗细 -->
+    <dimen name="stroke_width_thin">0.8dp</dimen>
+    <dimen name="stroke_width_medium">1.5dp</dimen>
+    <dimen name="stroke_width_thick">2.5dp</dimen>
+    
+    <!-- Widget专用尺寸调整 -->
+    <dimen name="widget_padding">6dp</dimen>
+    <dimen name="widget_margin">4dp</dimen>
+</resources> 

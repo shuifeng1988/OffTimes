@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 超高密度屏幕（xhdpi）适配 - 密度系数 0.9 -->
+    <!-- 320dpi设备：Nexus 4, Galaxy S3, LG G2等 -->
+    
+    <!-- 基础间距 -->
+    <dimen name="spacing_xs">1.8dp</dimen>
+    <dimen name="spacing_sm">3.6dp</dimen>
+    <dimen name="spacing_md">7.2dp</dimen>
+    <dimen name="spacing_lg">10.8dp</dimen>
+    <dimen name="spacing_xl">14.4dp</dimen>
+    <dimen name="spacing_xxl">21.6dp</dimen>
+    
+    <!-- 内边距 -->
+    <dimen name="padding_sm">7.2dp</dimen>
+    <dimen name="padding_md">10.8dp</dimen>
+    <dimen name="padding_lg">14.4dp</dimen>
+    <dimen name="padding_xl">18dp</dimen>
+    
+    <!-- 组件尺寸 -->
+    <dimen name="icon_size_sm">14.4dp</dimen>
+    <dimen name="icon_size_md">21.6dp</dimen>
+    <dimen name="icon_size_lg">28.8dp</dimen>
+    <dimen name="button_height">43.2dp</dimen>
+    <dimen name="card_elevation">3.6dp</dimen>
+    <dimen name="corner_radius">7.2dp</dimen>
+    
+    <!-- 图表尺寸 -->
+    <dimen name="chart_height">144dp</dimen>
+    <dimen name="pie_chart_height">180dp</dimen>
+    <dimen name="bar_chart_height">126dp</dimen>
+    
+    <!-- 字体大小 -->
+    <dimen name="text_size_xs">9sp</dimen>
+    <dimen name="text_size_sm">11sp</dimen>
+    <dimen name="text_size_md">13sp</dimen>
+    <dimen name="text_size_lg">15sp</dimen>
+    <dimen name="text_size_xl">19sp</dimen>
+    <dimen name="text_size_xxl">23sp</dimen>
+    
+    <!-- 线条粗细 -->
+    <dimen name="stroke_width_thin">0.9dp</dimen>
+    <dimen name="stroke_width_medium">1.8dp</dimen>
+    <dimen name="stroke_width_thick">2.7dp</dimen>
+</resources> 

@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_background"
+    android:padding="@dimen/widget_padding">
+
+    <!-- 标题区域 - 分类名称、使用时间、完成百分比在一行 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="@dimen/spacing_sm"
+        android:paddingHorizontal="@dimen/spacing_xs">
+
+        <!-- 左箭头按钮 -->
+        <ImageButton
+            android:id="@+id/widget_prev_category_btn"
+            android:layout_width="@dimen/icon_size_lg"
+            android:layout_height="@dimen/icon_size_lg"
+            android:src="@drawable/ic_arrow_left"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:scaleType="centerInside"
+            android:layout_marginEnd="@dimen/spacing_sm"
+            android:alpha="0.7" />
+
+        <!-- 分类图标 -->
+        <TextView
+            android:id="@+id/widget_category_icon"
+            android:layout_width="@dimen/widget_icon_size"
+            android:layout_height="@dimen/widget_icon_size"
+            android:text="🎮"
+            android:textSize="@dimen/widget_text_size_md"
+            android:gravity="center"
+            android:layout_marginEnd="@dimen/spacing_sm" />
+
+        <!-- 分类名称 -->
+        <TextView
+            android:id="@+id/widget_category_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="分类名称"
+            android:textSize="@dimen/widget_text_size_lg"
+            android:textStyle="bold"
+            android:textColor="#1A1A1A"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.01"
+            android:includeFontPadding="false" />
+
+        <!-- 右箭头按钮 -->
+        <ImageButton
+            android:id="@+id/widget_next_category_btn"
+            android:layout_width="@dimen/icon_size_lg"
+            android:layout_height="@dimen/icon_size_lg"
+            android:src="@drawable/ic_arrow_right"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:scaleType="centerInside"
+            android:layout_marginStart="@dimen/spacing_sm"
+            android:layout_marginEnd="@dimen/spacing_md"
+            android:alpha="0.7" />
+
+        <!-- 时钟图标 -->
+        <ImageView
+            android:layout_width="@dimen/widget_icon_size"
+            android:layout_height="@dimen/widget_icon_size"
+            android:src="@drawable/ic_timer"
+            android:layout_marginEnd="@dimen/spacing_sm"
+            android:alpha="0.8" />
+
+        <!-- 使用时间 -->
+        <TextView
+            android:id="@+id/widget_usage_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="0分钟 / 120分钟"
+            android:textSize="@dimen/widget_text_size_md"
+            android:textStyle="normal"
+            android:textColor="#404040"
+            android:fontFamily="sans-serif"
+            android:gravity="start"
+            android:layout_marginEnd="@dimen/spacing_lg"
+            android:letterSpacing="0.005"
+            android:includeFontPadding="false" />
+
+        <!-- 完成百分比 -->
+        <TextView
+            android:id="@+id/widget_completion_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0%"
+            android:textSize="@dimen/widget_text_size_lg"
+            android:textStyle="bold"
+            android:textColor="#2E7D32"
+            android:fontFamily="sans-serif-condensed"
+            android:letterSpacing="0.02"
+            android:includeFontPadding="false"
+            android:background="@drawable/percentage_background"
+            android:paddingHorizontal="@dimen/spacing_md"
+            android:paddingVertical="@dimen/spacing_xs" />
+
+    </LinearLayout>
+
+    <!-- 折线图区域 - 占据剩余空间 -->
+    <ImageView
+        android:id="@+id/widget_line_chart"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:scaleType="fitCenter"
+        android:adjustViewBounds="true"
+        android:layout_marginTop="-2dp"
+        android:layout_marginBottom="0dp" />
+
+</LinearLayout> 

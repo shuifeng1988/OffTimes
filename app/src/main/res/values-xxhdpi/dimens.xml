@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 超超高密度屏幕（xxhdpi）适配 - 密度系数 0.8 -->
+    <!-- 基础间距 -->
+    <dimen name="spacing_xs">1.6dp</dimen>
+    <dimen name="spacing_sm">3.2dp</dimen>
+    <dimen name="spacing_md">6.4dp</dimen>
+    <dimen name="spacing_lg">9.6dp</dimen>
+    <dimen name="spacing_xl">12.8dp</dimen>
+    <dimen name="spacing_xxl">19.2dp</dimen>
+    
+    <!-- 内边距 -->
+    <dimen name="padding_sm">6.4dp</dimen>
+    <dimen name="padding_md">9.6dp</dimen>
+    <dimen name="padding_lg">12.8dp</dimen>
+    <dimen name="padding_xl">16dp</dimen>
+    
+    <!-- 组件尺寸 -->
+    <dimen name="icon_size_sm">12.8dp</dimen>
+    <dimen name="icon_size_md">19.2dp</dimen>
+    <dimen name="icon_size_lg">25.6dp</dimen>
+    <dimen name="button_height">38.4dp</dimen>
+    <dimen name="card_elevation">3.2dp</dimen>
+    <dimen name="corner_radius">6.4dp</dimen>
+    
+    <!-- 图表尺寸 -->
+    <dimen name="chart_height">128dp</dimen>
+    <dimen name="pie_chart_height">160dp</dimen>
+    <dimen name="bar_chart_height">112dp</dimen>
+    
+    <!-- 字体大小 -->
+    <dimen name="text_size_xs">8sp</dimen>
+    <dimen name="text_size_sm">10sp</dimen>
+    <dimen name="text_size_md">12sp</dimen>
+    <dimen name="text_size_lg">14sp</dimen>
+    <dimen name="text_size_xl">18sp</dimen>
+    <dimen name="text_size_xxl">22sp</dimen>
+    
+    <!-- 线条粗细 -->
+    <dimen name="stroke_width_thin">0.8dp</dimen>
+    <dimen name="stroke_width_medium">1.6dp</dimen>
+    <dimen name="stroke_width_thick">2.4dp</dimen>
+
+    <!-- Widget专用尺寸 - 为Pixel 9 Pro XL等高密度屏幕优化 -->
+    <dimen name="widget_text_size_sm">12sp</dimen>
+    <dimen name="widget_text_size_md">14sp</dimen>  <!-- 从12sp增加到14sp -->
+    <dimen name="widget_text_size_lg">16sp</dimen>  <!-- 从14sp增加到16sp -->
+    <dimen name="widget_icon_size">20dp</dimen>     <!-- 从18dp增加到20dp -->
+    <dimen name="widget_padding">8dp</dimen>
+</resources> 

@@ -1,0 +1,16 @@
+# 支付宝配置示例
+# 请复制此文件为 gradle.properties 并填入真实的配置值
+
+# 支付宝应用ID - 从支付宝开放平台获取
+ALIPAY_APP_ID=2024123456789012
+
+# 商户私钥 - 从支付宝开放平台生成，格式为一行字符串
+ALIPAY_MERCHANT_PRIVATE_KEY=MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC...
+
+# 支付宝公钥 - 从支付宝开放平台获取，格式为一行字符串  
+ALIPAY_PUBLIC_KEY=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAr...
+
+# 环境设置
+# true: 沙箱环境 (用于开发测试)
+# false: 生产环境 (用于正式发布)
+ALIPAY_IS_SANDBOX=true 

@@ -1,0 +1,75 @@
+# Android Studio & Gradle
+# ========================
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+
+# App build outputs
+# =================
+/app/build/
+
+# Keystore files (CRITICAL: Never commit these to public repos)
+# ==============================================================
+*.jks
+*.keystore
+keystore/
+/app-release-key.jks
+
+# Google Services (Sensitive information)
+# ========================================
+client_secret_*.json
+google-services.json
+
+# Gradle properties (may contain sensitive keys)
+# ==============================================
+gradle.properties
+
+# Node.js (for server directory)
+# ==============================
+/server/node_modules/
+/server/npm-debug.log*
+/server/yarn-debug.log*
+/server/yarn-error.log*
+
+# Database files
+# ==============
+/server/data/*.db
+/server/data/*.db-journal
+
+# Log files
+# =========
+/server/logs/
+*.log
+
+# OS generated files
+# ==================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+# ===============
+*.tmp
+*.temp
+*~
+
+# IDE files
+# =========
+.vscode/
+*.swp
+*.swo
+
+# Documentation and build reports (generated files)
+# =================================================
+/docs/generated/
+/reports/

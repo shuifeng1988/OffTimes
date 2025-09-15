@@ -1,0 +1,876 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 应用名称 -->
+    <string name="app_name">离线时刻</string>
+    <string name="app_name_short">离线时刻</string>
+    
+    <!-- 小部件 -->
+    <string name="widget_description">显示手机使用时间统计和趋势图表</string>
+    <string name="widget_name">离线时刻 使用统计</string>
+    
+    <!-- 底部导航 -->
+    <string name="nav_home">首页</string>
+    <string name="nav_categories">分类</string>
+    <string name="nav_stats">统计</string>
+    <string name="nav_settings">设置</string>
+    
+    <!-- 通用操作 -->
+    <string name="action_back">返回</string>
+    <string name="action_save">保存</string>
+    <string name="action_cancel">取消</string>
+    <string name="action_confirm">确认</string>
+    <string name="action_delete">删除</string>
+    <string name="action_edit">编辑</string>
+    <string name="action_add">添加</string>
+    <string name="action_retry">重试</string>
+    <string name="action_refresh">刷新</string>
+    <string name="action_login">登录</string>
+    <string name="action_logout">退出登录</string>
+    <string name="action_register">注册</string>
+    <string name="action_upgrade">升级</string>
+    <string name="action_fix">修复</string>
+    <string name="action_check">检查</string>
+    
+    <!-- 时间单位 -->
+    <string name="time_minutes">分钟</string>
+    <string name="time_hours">小时</string>
+    <string name="time_seconds">秒</string>
+    <string name="time_days">天</string>
+    <string name="time_weeks">周</string>
+    <string name="time_months">月</string>
+    
+    <!-- 首页 -->
+    <string name="home_title">今日统计</string>
+    <string name="home_daily_usage">每日使用详情</string>
+    <string name="home_24h_details">24H使用详情</string>
+    <string name="home_no_data">暂无数据</string>
+    <string name="home_total_usage">总使用</string>
+    <string name="home_apps_details">应用详情</string>
+    <string name="home_today_stats">今日统计</string>
+    <string name="home_timer">计时</string>
+    <string name="home_countdown">定时</string>
+    <string name="home_pending_reward">延领</string>
+    <string name="home_goal_warning">今日需使用%.1fh达成目标</string>
+    <string name="home_available_time">今日可使用%.1fh，加油！</string>
+    <string name="home_set_goal_warning">⚠️ 请设置目标时间</string>
+    <string name="select_category">选择分类</string>
+    <string name="total_usage_hint_title">总使用分类</string>
+    <string name="total_usage_hint_desc">• 自动汇总除"排除统计"外的所有应用使用时间\n• 应用不能手动分配到此分类\n• 此分类的使用时间等于其他所有分类的总和</string>
+    <string name="no_data_available">暂无数据</string>
+    <string name="no_data_yesterday">昨日无数据</string>
+    
+    <!-- 分类管理 -->
+    <string name="categories_title">应用分类管理</string>
+    <string name="categories_exclude_stats">排除统计</string>
+    <string name="categories_edit_mode">编辑模式</string>
+    <string name="categories_system_apps">系统应用</string>
+    <string name="categories_user_apps">用户应用</string>
+    
+    <!-- 统计页面 -->
+    <string name="stats_title">使用统计</string>
+    <string name="stats_today">今日</string>
+    <string name="stats_yesterday">昨日</string>
+    <string name="stats_this_week">本周</string>
+    <string name="stats_this_month">本月</string>
+    <string name="stats_total">总共</string>
+    <string name="stats_usage_data">使用数据</string>
+    <string name="stats_completion_data">完成率数据</string>
+    
+    <!-- 设置页面 -->
+    <string name="settings_title">设置</string>
+    <string name="settings_account_management">账户管理</string>
+    <string name="settings_permission_management">权限管理</string>
+    <string name="settings_feature_management">功能管理</string>
+    <string name="settings_advanced_features">高级功能</string>
+    <string name="settings_about">关于应用</string>
+    <string name="settings_debug">调试功能</string>
+    <string name="settings_language">语言设置</string>
+    <string name="settings_language_description">选择应用显示语言（中文/English）</string>
+    <string name="settings_data_backup">数据备份</string>
+    <string name="settings_data_backup_description">云端备份数据，防止丢失</string>
+    <string name="settings_widget_display">Widget显示天数</string>
+    <string name="settings_widget_display_description">设置锁屏小组件显示的历史天数</string>
+    <string name="settings_database_debug">数据库调试</string>
+    <string name="settings_database_debug_description">查看数据库状态，生成测试数据</string>
+    <string name="settings_reset_onboarding">重新设置引导</string>
+    <string name="settings_reset_onboarding_description">重新体验首次启动引导流程</string>
+    
+    <!-- 设置操作 -->
+    <string name="settings_action_setup">设置</string>
+    <string name="settings_action_enter">进入</string>
+    <string name="settings_action_manage">管理</string>
+    <string name="settings_action_enable">开启</string>
+    <string name="settings_action_debug">调试</string>
+    <string name="settings_action_reset">重置</string>
+    
+    <!-- 备份设置对话框 -->
+    <string name="backup_settings_title">数据备份设置</string>
+    <string name="backup_auto_backup">自动备份</string>
+    <string name="backup_time">备份时间</string>
+    <string name="backup_status">备份状态</string>
+    <string name="backup_last_backup">最后备份</string>
+    <string name="backup_not_backed_up">未备份</string>
+    <string name="backup_count">备份次数</string>
+    <string name="backup_data_size">数据大小</string>
+    <string name="backup_loading_info">加载备份信息...</string>
+    <string name="backup_manual_backup">立即备份</string>
+    <string name="backup_restore_data">恢复数据</string>
+    <string name="backup_done">完成</string>
+    <string name="backup_select_time">选择备份时间</string>
+    
+    <!-- 权限相关 -->
+    <string name="permission_usage_stats">使用情况访问</string>
+    <string name="permission_usage_stats_description">已开启</string>
+    <string name="permission_query_packages">读取手机应用列表</string>
+    <string name="permission_query_packages_description">已开启</string>
+    <string name="permission_notification">推送通知</string>
+    <string name="permission_notification_description">已开启</string>
+    <string name="permission_lock_screen_widget">锁屏小部件</string>
+    <string name="permission_lock_screen_widget_description">未开启</string>
+    <string name="permission_auto_start">开机自启动</string>
+    <string name="permission_auto_start_description">已开启</string>
+    <string name="permission_background_run">后台运行</string>
+    <string name="permission_background_run_description">已开启</string>
+    <string name="permission_vibrate">震动提醒</string>
+    <string name="permission_vibrate_description">已开启</string>
+    <string name="permission_system_alert">悬浮窗权限</string>
+    <string name="permission_system_alert_description">未开启</string>
+    <string name="permission_granted">已开启</string>
+    <string name="permission_denied">未开启</string>
+    
+    <!-- 权限对话框 -->
+    <string name="permission_notification_title">需要通知权限</string>
+    <string name="permission_notification_message">为了及时提醒您完成目标和奖罚任务，OffTime需要获取通知权限。</string>
+    <string name="permission_notification_usage">该权限仅用于：</string>
+    <string name="permission_notification_usage_1">发送目标完成度提醒</string>
+    <string name="permission_notification_usage_2">发送奖罚任务提醒</string>
+    <string name="permission_notification_usage_3">帮助您养成良好的时间管理习惯</string>
+    <string name="permission_notification_confirm">点击确定开启通知权限。</string>
+    
+    <string name="permission_lock_screen_widget_title">需要锁屏小部件权限</string>
+    <string name="permission_lock_screen_widget_message">为了在锁屏界面显示使用时间统计，OffTime需要获取锁屏小部件权限。</string>
+    <string name="permission_lock_screen_widget_usage_1">在锁屏界面显示使用时间图表</string>
+    <string name="permission_lock_screen_widget_usage_2">提供即时的使用时间提醒</string>
+    <string name="permission_lock_screen_widget_usage_3">帮助您更好地控制手机使用习惯</string>
+    <string name="permission_lock_screen_widget_note">请注意：此权限通常在应用安装时自动获取。如显示未开启，请在应用详情页面手动开启。</string>
+    <string name="permission_lock_screen_widget_confirm">点击确定跳转到应用详情页面检查权限状态。</string>
+    
+    <string name="permission_auto_start_title">需要开机自启动权限</string>
+    <string name="permission_auto_start_message">为了在手机开机后自动启动数据统计服务，OffTime需要获取开机自启动权限。</string>
+    <string name="permission_auto_start_usage_1">开机后自动启动应用服务</string>
+    <string name="permission_auto_start_usage_2">确保使用时间统计的连续性</string>
+    <string name="permission_auto_start_usage_3">保证小部件数据的实时更新</string>
+    <string name="permission_auto_start_note">请注意：此权限通常在应用安装时自动获取。如显示未开启，请在自启动管理中手动开启。</string>
+    <string name="permission_auto_start_confirm">点击确定跳转到开机自启动设置页面。</string>
+    
+    <string name="permission_background_run_title">需要后台运行权限</string>
+    <string name="permission_background_run_message">为了持续统计应用使用时间和更新小部件数据，OffTime需要获取后台运行权限。</string>
+    <string name="permission_background_run_usage_1">在后台持续收集使用时间数据</string>
+    <string name="permission_background_run_usage_2">实时更新锁屏小部件内容</string>
+    <string name="permission_background_run_usage_3">确保目标监督功能正常工作</string>
+    <string name="permission_background_run_usage_4">发送及时的提醒通知</string>
+    <string name="permission_background_run_note">请注意：需要在电池优化设置中将OffTime设为"不优化"，以确保应用能够在后台正常运行。</string>
+    <string name="permission_background_run_confirm">点击确定跳转到电池优化设置页面。</string>
+    
+    <string name="permission_vibrate_title">需要震动权限</string>
+    <string name="permission_vibrate_message">为了在定时器结束时提供震动提醒，OffTime需要获取震动权限。</string>
+    <string name="permission_vibrate_usage_1">定时器结束时的震动提醒</string>
+    <string name="permission_vibrate_usage_2">增强声音提醒的效果</string>
+    <string name="permission_vibrate_usage_3">在静音模式下提供提醒功能</string>
+    <string name="permission_vibrate_note">请注意：此权限通常在应用安装时自动获取。如显示未开启，请在应用详情页面手动开启。</string>
+    <string name="permission_vibrate_confirm">点击确定跳转到应用详情页面检查权限状态。</string>
+    
+    <string name="permission_system_alert_title">需要悬浮窗权限</string>
+    <string name="permission_system_alert_message">为了显示悬浮窗提醒，OffTime需要获取悬浮窗权限。</string>
+    <string name="permission_system_alert_usage_1">显示悬浮窗提醒</string>
+    <string name="permission_system_alert_usage_2">提供即时的使用时间提醒</string>
+    <string name="permission_system_alert_usage_3">增强提醒效果</string>
+    <string name="permission_system_alert_note">请注意：此权限需要在系统设置中手动开启。</string>
+    <string name="permission_system_alert_confirm">点击确定跳转到悬浮窗权限设置页面。</string>
+    
+    <!-- 登录注册 -->
+    <string name="login_title">登录</string>
+    <string name="login_phone_number">手机号</string>
+    <string name="login_password">密码</string>
+    <string name="login_verification_code">验证码</string>
+    <string name="login_get_code">获取验证码</string>
+    <string name="login_alipay_quick">支付宝快捷登录</string>
+    <string name="login_google_quick">Google快捷登录</string>
+    <string name="login_password_tab">密码登录</string>
+    <string name="login_sms_tab">验证码登录</string>
+    <string name="login_phone_number_placeholder">请输入手机号</string>
+    <string name="login_account">账号</string>
+    <string name="login_account_placeholder">请输入手机号或用户名</string>
+    <string name="login_password_placeholder">请输入密码</string>
+    <string name="login_confirm_password">确认密码</string>
+    <string name="login_confirm_password_placeholder">请再次输入密码</string>
+    <string name="login_verification_code_placeholder">请输入验证码</string>
+    <string name="login_hide_password">隐藏密码</string>
+    <string name="login_show_password">显示密码</string>
+    <string name="login_button">登录</string>
+    <string name="register_button">注册</string>
+    <string name="login_with_alipay">使用支付宝登录</string>
+    <string name="login_with_google">使用Google登录</string>
+    <string name="login_google_description">使用Google账号安全登录，享受更好的服务体验</string>
+    <string name="login_google_welcome">欢迎使用离线时刻</string>
+    <string name="login_google_privacy_note">点击登录即表示您同意我们的服务条款和隐私政策</string>
+    <string name="login_switch_google_account">切换Google账号</string>
+    
+    <!-- 验证错误消息 -->
+    <string name="error_invalid_account">请输入正确的账号（手机号或用户名）</string>
+    <string name="error_invalid_phone">请输入正确的手机号</string>
+    <string name="error_password_too_short">密码长度至少%d位</string>
+    <string name="error_passwords_not_match">两次输入的密码不一致</string>
+    <string name="error_invalid_sms_code">请输入6位验证码</string>
+    
+    <!-- 试用和升级消息 -->
+    <string name="trial_active">免费试用中</string>
+    <string name="trial_expired">试用已过期</string>
+    <string name="trial_expired_subtitle">升级高级版继续使用</string>
+    <string name="trial_remaining_days">剩余 %d 天试用</string>
+    <string name="upgrade_now">立即升级</string>
+    <string name="upgrade_with_price">升级 %s</string>
+    
+    <string name="login_google_debug">🔧 开发者测试Google登录</string>
+    <string name="login_google_debug_note">仅用于开发测试，模拟Google登录</string>
+    <string name="login_alipay_debug">🔧 开发者测试登录</string>
+    <string name="login_alipay_debug_note">仅用于开发测试，跳过支付宝验证</string>
+    <string name="login_alipay_description">使用支付宝账号安全登录，无需记住密码</string>
+    <string name="login_sending_code">发送中...</string>
+    <string name="login_send_code">发送验证码</string>
+    <string name="login_send_sms_failed">发送验证码失败</string>
+    <string name="no_account">没有账户？</string>
+    <string name="has_account">已有账户？</string>
+    <string name="register_now">立即注册</string>
+    <string name="login_now">立即登录</string>
+    <string name="back_button">返回</string>
+
+    <string name="register_title">注册</string>
+    <string name="register_confirm_password">确认密码</string>
+    
+    <!-- 付费相关 -->
+    <string name="payment_title">离线时刻 高级版</string>
+    <string name="payment_subtitle">专业的时间管理工具</string>
+    <string name="payment_trial_status">试用状态</string>
+    <string name="payment_trial_expired">试用已过期</string>
+    <string name="payment_trial_active">试用中</string>
+    <string name="payment_premium_features">高级版功能</string>
+    <string name="payment_one_time">一次性付费</string>
+    <string name="payment_lifetime">永久享受所有功能</string>
+    <string name="payment_select_method">选择支付方式</string>
+    <string name="payment_alipay">支付宝</string>
+    <string name="payment_wechat">微信支付</string>
+    <string name="payment_google_play">Google Play</string>
+    <string name="payment_terms">• 支持支付宝、微信支付\n• 一次购买，永久使用\n• 30天无理由退款</string>
+    <string name="payment_terms_google_play">• 通过Google Play安全支付\n• 一次购买，永久使用\n• 符合Google Play退款政策</string>
+    <string name="payment_debug_selected_method">DEBUG: 当前选中支付方式:</string>
+    
+    <!-- 目标奖罚 -->
+    <string name="goals_title">目标奖罚设置</string>
+    <string name="goals_title_short">目标与奖罚</string>
+    <string name="goals_description">设置每日使用目标和完成奖惩</string>
+    <string name="goals_daily_limit">每日限制</string>
+    <string name="goals_reward">奖励</string>
+    <string name="goals_punishment">惩罚</string>
+    
+    <!-- 线下计时 -->
+    <string name="offline_timer_title">线下活动计时</string>
+    <string name="offline_timer_description">记录线下活动时长，培养健康习惯</string>
+    <string name="offline_timer_start">开始计时</string>
+    <string name="offline_timer_stop">停止计时</string>
+    <string name="offline_timer_pause">暂停</string>
+    <string name="offline_timer_resume">继续</string>
+    
+    <!-- 任务提醒 -->
+    <string name="task_reminder_title">任务提醒</string>
+    <string name="task_reminder_description">设置任务提醒，管理时间</string>
+    
+    <!-- 备份相关 -->
+    <string name="backup_title">数据备份</string>
+    <string name="backup_settings">备份设置</string>
+    <string name="backup_upload">上传备份</string>
+    <string name="backup_download">下载备份</string>
+    <string name="backup_enabled">备份已启用</string>
+    <string name="backup_disabled">备份已禁用</string>
+    <string name="backup_last_time">最后备份时间</string>
+    <string name="backup_total_count">总备份数</string>
+    <string name="backup_total_size">总数据量</string>
+    
+    <!-- 图表相关 -->
+    <string name="chart_axis_usage_time">使用时间H</string>
+    <string name="chart_axis_completion_rate">完成率%</string>
+    <string name="chart_axis_reward_completion">奖励完成度%</string>
+    <string name="chart_axis_punishment_completion">惩罚完成度%</string>
+    
+    <!-- 完成状态 -->
+    <string name="status_completed">已完成</string>
+    <string name="status_pending">待完成</string>
+    
+    <!-- 数据状态 -->
+    <string name="no_data">暂无数据</string>
+    
+    <!-- 时间周期 -->
+    <string name="time_period_today">今天</string>
+    <string name="time_period_this_week">本周</string>
+    <string name="time_period_this_month">本月</string>
+    <string name="time_period_day">日</string>
+    <string name="time_period_week">周</string>
+    <string name="time_period_month">月</string>
+    <string name="time_period_yesterday">昨日</string>
+    <string name="time_period_total">总共</string>
+    
+    <!-- 时间单位 -->
+    <string name="time_unit_minutes">分钟</string>
+    <string name="time_unit_hours">小时</string>
+    <string name="time_unit_apps">个应用</string>
+    
+    <!-- 时间单位缩写形式（用于widget） -->
+    <string name="time_unit_minutes_short">分</string>
+    <string name="time_unit_hours_short">时</string>
+    <string name="time_unit_apps_short">个</string>
+    
+    <!-- 分类名称 -->
+    <string name="category_entertainment">娱乐</string>
+    <string name="category_study">学习</string>
+    <string name="category_fitness">健身</string>
+    <string name="category_total_usage">总使用</string>
+    <string name="category_work">工作</string>
+    <string name="category_other">其他</string>
+    <string name="category_unknown">未知分类</string>
+    
+    <!-- 分类名称全称（用于分类页面和设置） -->
+    <string name="category_entertainment_full">娱乐</string>
+    <string name="category_study_full">学习</string>
+    <string name="category_fitness_full">健身</string>
+    <string name="category_total_usage_full">总使用</string>
+    <string name="category_work_full">工作</string>
+    <string name="category_other_full">其他</string>
+    <string name="category_unknown_full">未知分类</string>
+
+    <!-- 调试功能 -->
+    <string name="debug_title">数据库调试中心</string>
+    <string name="debug_subtitle">Database Debug Center</string>
+    <!-- 调试界面标题和描述 -->
+    <string name="debug_main_title">数据库调试中心</string>
+    <string name="debug_main_subtitle">Database Debug Center</string>
+    <string name="debug_back">返回</string>
+    <string name="debug_refresh">刷新</string>
+    
+    <!-- 调试分类 -->
+    <string name="debug_category_basic_config">基础配置</string>
+    <string name="debug_category_usage_stats">使用统计</string>
+    <string name="debug_category_reward_system">奖罚系统</string>
+    <string name="debug_category_session_records">会话记录</string>
+    <string name="debug_category_system_diagnosis">系统诊断</string>
+    <string name="debug_category_component_test">组件测试</string>
+    
+    <!-- 调试表格项目 -->
+    <string name="debug_app_categories_title">应用分类表</string>
+    <string name="debug_app_categories_desc">AppCategory_Users - 查看所有应用分类配置</string>
+    
+    <string name="debug_app_settings_title">应用设置表</string>
+    <string name="debug_app_settings_desc">app_settings - 查看全局设置（默认分类、奖罚开关）</string>
+    
+    <string name="debug_app_info_title">应用信息表</string>
+    <string name="debug_app_info_desc">app_info_Users - 查看已安装应用信息</string>
+    
+    <string name="debug_summary_usage_title">日使用汇总表</string>
+    <string name="debug_summary_usage_desc">summary_usage_user - 查看每日使用时间汇总</string>
+    
+    <string name="debug_summary_usage_week_title">周使用汇总表</string>
+    <string name="debug_summary_usage_week_desc">summary_usage_week_user - 查看每周使用时间汇总</string>
+    
+    <string name="debug_summary_usage_month_title">月使用汇总表</string>
+    <string name="debug_summary_usage_month_desc">summary_usage_month_user - 查看每月使用时间汇总</string>
+    
+    <string name="debug_daily_usage_title">每日使用数据</string>
+    <string name="debug_daily_usage_desc">daily_usage_user - 查看每日使用时间统计</string>
+    
+    <string name="debug_daily_usage_summary_title">每日使用汇总</string>
+    <string name="debug_daily_usage_summary_desc">按天排列 - 查看所有日期的应用使用详情</string>
+    
+    <string name="debug_reward_week_title">周奖罚汇总表</string>
+    <string name="debug_reward_week_desc">reward_punishment_week_user - 查看每周奖罚记录汇总</string>
+    
+    <string name="debug_reward_month_title">月奖罚汇总表</string>
+    <string name="debug_reward_month_desc">reward_punishment_month_user - 查看每月奖罚记录汇总</string>
+    
+    <string name="debug_goals_title">目标奖罚配置</string>
+    <string name="debug_goals_desc">goals_reward_punishment_users - 查看目标和奖惩设置</string>
+    
+    <string name="debug_reward_punishment_title">奖惩记录表</string>
+    <string name="debug_reward_punishment_desc">reward_punishment_user - 查看日奖罚记录</string>
+    
+    <!-- 数据验证相关字符串 -->
+    <string name="debug_data_validation">数据验证中心</string>
+    <string name="debug_data_validation_subtitle">Data Validation Center</string>
+    <string name="debug_check_data">检查数据</string>
+    <string name="debug_fix_anomalies">修复异常</string>
+    <string name="debug_validation_report">验证报告</string>
+    <string name="debug_status">状态</string>
+    <string name="debug_normal">正常</string>
+    <string name="debug_anomalous">异常</string>
+    
+    <string name="debug_app_sessions_title">应用会话表</string>
+    <string name="debug_app_sessions_desc">app_sessions_users - 查看应用使用会话</string>
+    
+    <string name="debug_timer_sessions_title">线下活动表</string>
+    <string name="debug_timer_sessions_desc">timer_sessions_users - 查看线下活动计时记录</string>
+    
+    <string name="debug_diagnosis_title">问题诊断</string>
+    <string name="debug_diagnosis_desc">综合分析 - 自动诊断常见问题</string>
+    
+    <string name="debug_data_consistency_title">数据一致性诊断</string>
+    <string name="debug_data_consistency_desc">数据修复 - 检测并修复原始数据和聚合数据不一致问题</string>
+    
+    <string name="debug_scaling_factor_title">缩放因子调试</string>
+    <string name="debug_scaling_factor_desc">屏幕适配 - 查看当前设备的缩放因子信息</string>
+    
+    <string name="debug_pie_chart_test_title">PieChart组件测试</string>
+    <string name="debug_pie_chart_test_desc">UI测试 - 验证重构后的PieChart组件功能</string>
+    
+    <string name="debug_data_collection_title">数据收集调试</string>
+    <string name="debug_data_collection_desc">权限检查 - 诊断数据收集和权限问题</string>
+    
+    <string name="debug_realtime_stats_title">实时统计调试</string>
+    <string name="debug_realtime_stats_desc">新功能 - 测试实时统计和智能合并功能</string>
+    
+    <string name="debug_unified_update_title">统一更新服务</string>
+    <string name="debug_unified_update_desc">服务监控 - 检查每分钟自动更新服务运行状态</string>
+    
+    <string name="debug_data_validation_title">数据验证中心</string>
+    <string name="debug_data_validation_desc">数据修复 - 检测和修复柱状图中单小时超过60分钟的异常数据</string>
+    
+    <!-- 调试界面详情 -->
+    <string name="debug_tables_overview">数据表总览</string>
+    <string name="debug_tables_count">共 %1$d 个数据表，%2$d 个分类</string>
+    <string name="debug_select_table">选择要调试的数据表，查看详细信息和数据内容</string>
+    
+    <!-- 调试页面标题 -->
+    <string name="debug_app_categories_screen_title">应用分类表调试</string>
+    <string name="debug_app_settings_screen_title">应用设置表调试</string>
+    <string name="debug_app_info_screen_title">应用信息调试</string>
+    <string name="debug_sessions_screen_title">使用会话表调试</string>
+    <string name="debug_usage_screen_title">每日使用数据调试</string>
+    <string name="debug_data_collection_screen_title">数据收集调试</string>
+    <string name="debug_data_repair_screen_title">数据修复中心</string>
+    <string name="debug_summary_tables_screen_title">汇总表调试中心</string>
+    
+    <!-- 调试界面缺失的字符串 -->
+    <string name="debug_db_debug_center_title">数据库调试中心</string>
+    <string name="debug_db_debug_center_subtitle">Database Debug Center</string>
+    <string name="debug_data_table_overview_title">数据表总览</string>
+    <string name="debug_data_table_overview_desc">共 %1$d 个数据表，%2$d 个分类</string>
+    <string name="debug_select_data_table_desc">选择要调试的数据表，查看详细信息和数据内容</string>
+    <string name="debug_category_reward_punishment">奖罚系统</string>
+    <string name="debug_category_session_record">会话记录</string>
+    <string name="debug_reward_punishment_week_title">周奖罚汇总表</string>
+    <string name="debug_reward_punishment_week_desc">reward_punishment_week_user - 查看每周奖罚记录汇总</string>
+    <string name="debug_reward_punishment_month_title">月奖罚汇总表</string>
+    <string name="debug_reward_punishment_month_desc">reward_punishment_month_user - 查看每月奖罚记录汇总</string>
+    <string name="debug_reward_punishment_user_title">奖惩记录表</string>
+    <string name="debug_reward_punishment_user_desc">reward_punishment_user - 查看日奖罚记录</string>
+    
+    <!-- 错误消息 -->
+    <string name="error_network">网络错误</string>
+    <string name="error_server">服务器错误</string>
+    <string name="error_permission">权限错误</string>
+    <string name="error_unknown">未知错误</string>
+    <string name="error_data_loading">数据加载失败</string>
+    
+    <!-- 成功消息 -->
+    <string name="success_save">保存成功</string>
+    <string name="success_login">登录成功</string>
+    <string name="success_register">注册成功</string>
+    <string name="success_backup">备份成功</string>
+    <string name="success_restore">恢复成功</string>
+    
+    <!-- 引导页面 -->
+    <string name="onboarding_welcome">欢迎使用 离线时刻</string>
+    <string name="onboarding_permission_title">权限设置</string>
+    <string name="onboarding_category_title">分类设置</string>
+    <string name="onboarding_complete">完成设置</string>
+    <string name="onboarding_skip">跳过</string>
+    
+    <!-- 小部件相关 -->
+    <string name="widget_settings_title">Widget显示设置</string>
+    <string name="widget_display_days_title">显示天数设置</string>
+    <string name="widget_display_days_description">选择锁屏小组件中折线图显示的历史天数</string>
+    <string name="widget_preset_options">预设选项</string>
+    <string name="widget_one_week">一周（7天）</string>
+    <string name="widget_half_month">半月（15天）</string>
+    <string name="widget_one_month">一月（30天）</string>
+    <string name="widget_three_months">三月（90天）</string>
+    <string name="widget_half_year">半年（180天）</string>
+    <string name="widget_one_year">一年（365天）</string>
+    <string name="widget_lock_screen">锁屏小部件</string>
+    <string name="widget_home_screen">桌面小部件</string>
+    
+    <!-- 应用信息 -->
+    <string name="about_version">版本</string>
+    <string name="about_build">构建版本</string>
+    <string name="about_developer">开发者</string>
+    <string name="about_contact">联系我们</string>
+    
+    <!-- 数据验证 -->
+    <string name="data_validation_info">功能说明</string>
+    <string name="data_validation_check_desc">扫描最近7天的柱状图数据，检测单小时使用时间是否超过60分钟</string>
+    <string name="data_validation_fix_desc">自动将超过60分钟的异常数据修正为60分钟上限</string>
+    <string name="data_validation_cause_desc">异常原因：通常由跨时段会话分拆算法的累积误差导致</string>
+    <string name="data_validation_safe_desc">数据安全：修复过程只调整异常数据，不影响正常数据</string>
+    
+    <!-- 账户管理相关 -->
+    <string name="account_management_title">账户管理</string>
+    <string name="account_trial_status">试用状态</string>
+    <string name="account_free_trial">免费试用期</string>
+    <string name="account_trial_days_remaining">还有 %d 天试用时间</string>
+    <string name="account_trial_expired_title">试用期已结束</string>
+    <string name="account_trial_expired_description">请升级到付费版本继续使用</string>
+    <string name="account_premium_version">付费版本</string>
+    <string name="account_enjoy_full_features">享受完整功能</string>
+    <string name="account_upgrade_to_premium">升级到付费版</string>
+    <string name="account_pay_now">立即付费</string>
+    <string name="account_upgrade_reminder">💰 升级提醒</string>
+    <string name="account_upgrade_reminder_text">试用期结束后需要一次性支付 9.9 元即可永久使用全部功能</string>
+    <string name="account_not_logged_in">未登录</string>
+    <string name="account_login_to_sync">登录后可同步数据到云端</string>
+    <string name="account_multi_device_sync">支持多设备数据同步</string>
+    <string name="account_login_register">登录/注册</string>
+    <string name="account_nickname_not_set">未设置昵称</string>
+    <string name="account_data_sync_status">数据同步: %s</string>
+    <string name="account_data_sync_enabled">已开启</string>
+    <string name="account_data_sync_disabled">已关闭</string>
+    <string name="account_edit_profile">编辑资料</string>
+    <string name="account_logout">退出登录</string>
+    
+    <!-- 时间格式 -->
+    <string name="format_minutes_short">%d分</string>
+    <string name="format_hours_minutes" formatted="false">%d小时%d分钟</string>
+    <string name="format_days_remaining">还有%d天</string>
+    <string name="format_usage_percent">%.1f%%</string>
+
+    <!-- Offline Activity App Names -->
+    <string name="offline_activity_app_name">🏃 线下活动 (%1$s)</string>
+    <string name="offline_label">线下</string>
+    <string name="online_label">线上</string>
+    <string name="category_label">分类：%1$s</string>
+    <string name="current_category">分类：%1$s</string>
+    <string name="uncategorized">未分类</string>
+    
+    <!-- Reward/Punishment Summary -->
+    <string name="stats_reward_summary">%1$s奖励汇总</string>
+    <string name="stats_reward_summary_category">%1$s-%2$s奖励汇总</string>
+    <string name="stats_punishment_summary">%1$s惩罚汇总</string>
+    <string name="stats_punishment_summary_category">%1$s-%2$s惩罚汇总</string>
+    <string name="stats_no_reward_in_period">本时间段内%1$s暂未获得奖励</string>
+    <string name="stats_no_punishment_in_period">本时间段内%1$s暂未执行惩罚</string>
+    <string name="completion_details">完成详情</string>
+    
+    <!-- Timer/Countdown Labels -->
+    <string name="timer_label">计时</string>
+    <string name="countdown_label">定时</string>
+    
+    <!-- Pie Chart Status Messages -->
+    <string name="please_set_goal_time">⚠️ 请设置目标时间</string>
+    <string name="today_can_use_hours">🌟 今日可使用%1$sh，加油！</string>
+    <string name="today_need_use_hours">⚠️ 今日需使用%1$sh达成目标</string>
+    <string name="can_still_use_hours">✅ 还可以使用%1$sh，继续保持！</string>
+    <string name="still_need_use_hours">⚠️ 还需使用%1$sh达成目标</string>
+    <string name="exceeded_goal_hours">❌ 已超出目标%1$sh</string>
+    <string name="completed_goal_exceeded">🎉 已完成目标并超出%1$sh，太棒了！</string>
+    
+    <!-- Timer Dialog -->
+    <string name="countdown_timer_title">定时计时</string>
+    <string name="start_timer">开始计时</string>
+    <string name="start_countdown">开始倒计时</string>
+    <string name="pause_timer">暂停</string>
+    <string name="resume_timer">继续</string>
+    <string name="stop_timer">停止</string>
+    <string name="background_timer">背景计时</string>
+    <string name="test_sound">测试提醒音</string>
+    <string name="cancel">取消</string>
+    
+    <!-- Time Units -->
+
+    
+    <!-- Categories Management -->
+    <string name="categories_management_title">应用分类管理</string>
+    <string name="all_apps">全部应用</string>
+    <string name="all_categories">全部</string>
+    <string name="back_button_desc">返回</string>
+    <string name="offline_activity">线下活动</string>
+    
+    <!-- Operation Hints -->
+    <string name="operation_hint_title">操作提示</string>
+    <string name="operation_hint_edit_mode">• 编辑模式下显示所有应用</string>
+    <string name="operation_hint_exclude_button">• 点击🚫按钮快速排除应用</string>
+    <string name="operation_hint_edit_button">• 点击编辑按钮更改分类</string>
+    <string name="edit_mode">编辑模式</string>
+    <string name="exclude_app">排除应用</string>
+    <string name="edit_category">编辑分类</string>
+    
+    <!-- Yesterday Detail Dialog -->
+    <string name="yesterday_detail_title">昨日数据详情</string>
+    <string name="usage_time_details">使用时间详情</string>
+    <string name="online_usage">线上使用</string>
+    <string name="offline_usage">线下使用</string>
+    <string name="total_usage_time">总使用时间</string>
+    <string name="goal_met">已达标</string>
+    <string name="goal_not_met">未达标</string>
+    <string name="goal_not_met_pending">未达标－待完成</string>
+    <string name="goal_not_met_completed">未达标－已完成</string>
+    <string name="reward_content_display">奖励内容</string>
+    <string name="punishment_content_display">惩罚内容</string>
+    
+    <!-- Excluded Apps -->
+    <string name="excluded_apps_title">排除统计应用</string>
+    <string name="refresh_button_desc">刷新</string>
+    <string name="no_excluded_apps">暂无排除应用</string>
+    <string name="all_apps_included">所有应用都参与统计</string>
+    <string name="exclusion_stats_info">排除统计信息</string>
+    <string name="system_apps">系统应用</string>
+    <string name="user_apps">用户应用</string>
+    <string name="total_count">总计</string>
+    <string name="system_app_label">系统应用</string>
+    <string name="user_app_label">用户应用</string>
+    <string name="restore_app_desc">恢复统计</string>
+    <string name="auto_summary_all_apps">自动汇总所有应用</string>
+    
+    <!-- Stats Screen -->
+    <string name="stats_usage_title">使用统计</string>
+    <string name="stats_goal_title">目标统计</string>
+    <string name="stats_usage_change_title">使用变化排序</string>
+    <string name="stats_usage_duration_title">使用时长</string>
+    <string name="stats_reward_details_title">奖励详情</string>
+    <string name="stats_punishment_details_title">惩罚详情</string>
+    <string name="show_all">展开全部</string>
+    <string name="most_increased">使用增长最多</string>
+    <string name="most_decreased">使用减少最多</string>
+    <string name="dialog_confirm">确定</string>
+    <string name="reward_completed_count">奖励完成次数:</string>
+    <string name="punishment_completed_count">惩罚完成次数:</string>
+    <string name="punishment_content">惩罚内容</string>
+    <string name="total_completed">累计完成</string>
+    <string name="total_obtained">累计获得</string>
+    <string name="expected_rewards">应获得奖励</string>
+    <string name="completed_rewards">已完成奖励</string>
+    <string name="expected_punishments">应获得惩罚</string>
+    <string name="completed_punishments">已完成惩罚</string>
+    
+    <!-- Time Periods - Simplified -->
+    <string name="period_today">今日</string>
+    <string name="period_yesterday">昨日</string>
+    <string name="period_week">本周</string>
+    <string name="period_month">本月</string>
+    <string name="period_all">总共</string>
+    <string name="period_day_before_yesterday">前日</string>
+    <string name="period_last_week">上周</string>
+    <string name="period_last_month">上月</string>
+    <string name="period_day_short">日</string>
+    <string name="period_week_short">周</string>
+    <string name="period_month_short">月</string>
+
+    <!-- InfoDialog Titles -->
+    <string name="info_usage_stats_title">使用统计说明</string>
+    <string name="info_goal_stats_title">目标统计说明</string>
+    <string name="info_usage_change_title">使用变化排序说明</string>
+    <string name="info_usage_duration_title">使用时长说明</string>
+    <string name="info_reward_details_title">奖励详情说明</string>
+    <string name="info_punishment_details_title">惩罚详情说明</string>
+    
+    <!-- InfoDialog Contents -->
+    <string name="info_usage_stats_content">显示各分类应用的使用时长统计。\n\n• 今日/昨日：显示当天的使用时长\n• 本周：显示本周累计使用时长\n• 本月：显示本月累计使用时长\n\n时长格式：小时(h)和分钟(m)，如1h30m表示1小时30分钟。</string>
+    <string name="info_goal_stats_content" formatted="false">显示各分类的目标完成情况。\n\n• 第一行：完成次数:总目标数\n• 第二行：完成百分比\n\n目标数计算：\n• 昨日：固定为1（昨天1天）\n• 本周：已过去的天数（不含今天）\n• 本月：已过去的天数（不含今天）\n• 总共：所有有记录的天数\n\n特殊情况：\n• 周一/月初时分母为0，显示100%完成率\n• 颜色：绿色(100%)、橙色(50-99%)、红色(&lt;50%)</string>
+    <string name="info_usage_change_content">显示应用使用时长的变化趋势。\n\n• 📈 使用增长最多：与上一时段相比使用时长增加的应用\n• 📉 使用减少最多：与上一时段相比使用时长减少的应用\n\n对比说明：\n• 今日 vs 昨日\n• 昨日 vs 前日\n• 本周 vs 上周\n• 本月 vs 上月\n\n显示格式：▲103m 表示增加103分钟，+15% 表示增长15%</string>
+    <string name="info_usage_duration_content">显示各应用的使用时长排行榜。\n\n• 按照平均每日使用时长排序\n• 🥇🥈🥉 分别代表前三名\n• 显示应用名称、所属分类和使用时长\n\n时间段说明：\n• 今日/昨日：显示当天的使用时长\n• 本周/本月：显示平均每日使用时长\n• 总共：显示所有时间的平均每日使用时长\n\n点击\"展开全部\"查看更多应用排名。</string>
+    <string name="info_reward_details_content">显示各分类在不同时间段的奖励完成情况。\n\n• 昨天：昨日的奖励完成\n• 本周：本周一到今天的累计\n• 本月：本月1号到今天的累计\n• 总共：自有记录以来的全部\n\n点击分类按钮查看具体奖励次数和内容。分类按钮下方显示奖励完成度统计。</string>
+    <string name="info_punishment_details_content">显示各分类在不同时间段的惩罚完成情况。\n\n• 昨天：昨日的惩罚完成\n• 本周：本周一到今天的累计\n• 本月：本月1号到今天的累计\n• 总共：自有记录以来的全部\n\n点击分类按钮查看具体惩罚次数和内容。分类按钮下方显示惩罚完成度统计。</string>
+    <string name="times_unit">次</string>
+    <string name="expected_rewards_count">应获得奖励：%1$d次</string>
+    <string name="completed_rewards_count">已完成奖励：%1$d次</string>
+    <string name="expected_punishments_count">应获得惩罚：%1$d次</string>
+    <string name="completed_punishments_count">已完成惩罚：%1$d次</string>
+    <string name="reward_completion_ratio">%1$d/%2$d次</string>
+    <string name="punishment_completion_ratio">%1$d/%2$d次</string>
+    
+    <!-- Pie Chart Reward/Punishment Module -->
+    <string name="goal_achieved">达标</string>
+    <string name="goal_not_achieved">未达标</string>
+    <string name="reward_button">奖励</string>
+    <string name="punishment_button">惩罚</string>
+    <string name="yesterday_reward_completed">昨日奖励完成</string>
+    <string name="yesterday_punishment_completed">昨日惩罚完成</string>
+    
+    <!-- Goals & Rewards Page -->
+    <string name="goals_rewards_title">目标与奖罚</string>
+    <string name="no_goal_data">暂无目标数据</string>
+    <string name="please_set_categories_first">请先设置应用分类</string>
+    <string name="target_time">目标时间</string>
+    <string name="completion_condition">条件</string>
+    <string name="completion_reward">奖励</string>
+    <string name="incomplete_punishment">未完成惩罚</string>
+    <string name="default_category">默认</string>
+    <string name="no_goal_set">暂未设置目标</string>
+    <string name="set_goal">设置目标</string>
+    <string name="edit_goal">编辑目标</string>
+    <string name="goal_settings">目标设置</string>
+    <string name="target_quantity">目标Qty</string>
+    <string name="less_than_target">≤ 目标时间</string>
+    <string name="more_than_target">≥ 目标时间</string>
+    <string name="reward_content">奖励内容</string>
+    <string name="reward_content_placeholder">如：薯片、饮料、休息时间</string>
+    <string name="quantity">Qty</string>
+    <string name="unit">Unit</string>
+    <string name="unit_placeholder">如：包、个、杯</string>
+    <string name="punishment_action">惩罚</string>
+    <string name="punishment_action_placeholder">如：俯卧撑、跑步、仰卧起坐</string>
+    <string name="save">保存</string>
+    
+    <!-- Goal Edit Dialog Additional Strings -->
+    <string name="frequency_unit">Unit</string>
+    <string name="preview_prefix">预览：</string>
+    <string name="preview_reward_template">每%1$s%2$s%3$s%4$s</string>
+    <string name="preview_reward_placeholder">每%1$s[内容][数量][单位]</string>
+    <string name="preview_punishment_template">每%1$s%2$s%3$s%4$s</string>
+    <string name="preview_punishment_placeholder">每%1$s[动作][数量][单位]</string>
+    <string name="time_unit_day">D</string>
+    <string name="time_unit_hour">H</string>
+    <string name="time_unit_minute">M</string>
+    <string name="time_unit_second">S</string>
+    <string name="frequency_prefix">每</string>
+    <string name="target_time_suffix">目标时间</string>
+    
+    <!-- Emoji Icons -->
+    <string name="emoji_target">🎯</string>
+    <string name="emoji_reward">🎁</string>
+    <string name="emoji_warning">⚠️</string>
+    
+    <!-- Default Reward/Punishment Values -->
+    <string name="default_reward_chips">薯片</string>
+    <string name="default_reward_pack">包</string>
+    <string name="default_punishment_pushups">俯卧撑</string>
+    <string name="default_punishment_count">个</string>
+    <string name="default_time_unit_minute">分钟</string>
+    <string name="default_time_unit_hour">小时</string>
+
+    <!-- 自动补全缺失key，内容为key本身，后续可自行润色 -->
+    <string name="no_category_data">暂无分类数据\n请先在分类页面添加分类</string>
+    <string name="timer_running">计时中</string>
+    <string name="today_total_time">今日总计时</string>
+    <string name="sessions_count">计时次数</string>
+    <string name="session_unit">次</string>
+    <string name="average_duration">平均时长</string>
+    <string name="completed_label">  └ 已完成:</string>
+    <string name="current_timer_label">  └ 当前计时:</string>
+    <string name="onboarding_subtitle">让我们帮您设置应用，开始管理手机使用时间</string>
+    <string name="onboarding_setup_includes">设置包括：</string>
+    <string name="onboarding_feature_permission_title">开启必要权限</string>
+    <string name="onboarding_feature_permission_desc">使用统计、应用列表、通知权限</string>
+    <string name="onboarding_feature_auto_read_title">自动读取应用</string>
+    <string name="onboarding_feature_auto_read_desc">扫描手机应用并智能分类</string>
+    <string name="onboarding_feature_start_title">开始使用</string>
+    <string name="onboarding_feature_start_desc">完成设置，开始管理时间</string>
+    <string name="onboarding_start_setup">开始设置</string>
+    <string name="widget_custom_option_with_days">自定义（%1$d天）</string>
+    <string name="widget_custom_option">自定义</string>
+    <string name="widget_usage_hint_title">💡 使用说明</string>
+    <string name="widget_usage_hint">
+    • 安装前的日期使用灰色虚线显示
+    • 安装后的日期使用彩色实线显示
+    • 即使使用时长为0，也会显示彩色实线
+    • 天数越多，图表越密集，建议选择适合的天数
+    </string>
+    <string name="onboarding_usage_permission_title">使用情况访问权限</string>
+    <string name="onboarding_usage_permission_desc">用于统计应用使用情况</string>
+    <string name="onboarding_permission_usage_time">统计应用使用时间</string>
+    <string name="onboarding_permission_manage_habit">管理时间习惯</string>
+    <string name="onboarding_permission_target_supervision">目标监督</string>
+    <string name="onboarding_permission_step_1">步骤1</string>
+    <string name="onboarding_permission_step_2">步骤2</string>
+    <string name="onboarding_permission_step_3">步骤3</string>
+    <string name="onboarding_permission_step_4">步骤4</string>
+    <string name="onboarding_query_packages_permission_title">应用列表权限</string>
+    <string name="onboarding_query_packages_permission_desc_android11">Android 11及以上应用列表权限说明</string>
+    <string name="onboarding_query_packages_permission_desc_below11">Android 11以下应用列表权限说明</string>
+    <string name="onboarding_permission_basic_info">基础信息权限</string>
+    <string name="onboarding_permission_app_classification">应用分类权限</string>
+    <string name="onboarding_permission_app_usage_data">应用使用数据权限</string>
+    <string name="onboarding_permission_step_1_android11">Android11步骤1</string>
+    <string name="onboarding_permission_step_2_android11">Android11步骤2</string>
+    <string name="onboarding_permission_step_3_android11">Android11步骤3</string>
+    <string name="onboarding_permission_step_1_below11">Android10及以下步骤1</string>
+    <string name="onboarding_permission_step_2_below11">Android10及以下步骤2</string>
+    <string name="onboarding_permission_step_3_below11">Android10及以下步骤3</string>
+    <string name="onboarding_notification_permission_title">通知权限</string>
+    <string name="onboarding_notification_permission_desc">用于发送提醒通知</string>
+    <string name="onboarding_permission_target_completion_reminder">目标完成提醒</string>
+    <string name="onboarding_permission_reward_punishment_reminder">奖罚任务提醒</string>
+    <string name="onboarding_permission_time_management_habit">时间管理习惯提醒</string>
+    <string name="onboarding_permission_step_1_notification">通知步骤1</string>
+    <string name="onboarding_permission_step_2_notification">通知步骤2</string>
+    <string name="onboarding_vibrate_permission_title">震动权限</string>
+    <string name="onboarding_vibrate_permission_desc">用于定时器震动提醒</string>
+    <string name="onboarding_permission_timer_end_vibration">定时结束震动</string>
+    <string name="onboarding_permission_enhanced_sound_effect">增强音效</string>
+    <string name="onboarding_permission_silent_mode_reminder">静音模式提醒</string>
+    <string name="onboarding_permission_step_1_vibrate">震动步骤1</string>
+    <string name="onboarding_permission_step_2_vibrate">震动步骤2</string>
+    <string name="onboarding_permission_step_3_vibrate">震动步骤3</string>
+    <string name="onboarding_battery_optimization_permission_title">电池优化权限</string>
+    <string name="onboarding_battery_optimization_permission_desc">用于后台运行</string>
+    <string name="onboarding_permission_background_usage_data">后台使用数据</string>
+    <string name="onboarding_permission_real_time_widget_update">实时小组件更新</string>
+    <string name="onboarding_permission_timely_reminder">及时提醒</string>
+    <string name="onboarding_permission_step_1_battery">电池步骤1</string>
+    <string name="onboarding_permission_step_2_battery">电池步骤2</string>
+    <string name="onboarding_permission_step_3_battery">电池步骤3</string>
+    <string name="permission_usage_title">使用权限</string>
+    <string name="permission_how_to_enable_title">如何开启权限</string>
+    <string name="permission_granted_message">权限已授予</string>
+    <string name="permission_request_permission">请求权限</string>
+    <string name="onboarding_initializing_title">初始化中</string>
+    <string name="onboarding_initializing_desc">正在初始化数据</string>
+    <string name="initialization_progress_title">初始化进度</string>
+    <string name="initialization_will_perform_title">即将执行</string>
+    <string name="initialization_step_scan_apps">扫描应用</string>
+    <string name="initialization_step_smart_classification">智能分类</string>
+    <string name="initialization_step_auto_exclude">自动排除</string>
+    <string name="initialization_step_initialize_data">初始化数据</string>
+    <string name="initialization_step_set_default_target">设置默认目标</string>
+    <string name="initialization_start_title">开始初始化</string>
+    <!-- 初始化状态文本 -->
+    <string name="initialization_init_user_data">初始化用户数据...</string>
+    <string name="initialization_init_categories">初始化应用分类...</string>
+    <string name="initialization_scan_apps">扫描手机应用...</string>
+    <string name="initialization_smart_categorize">智能分类应用...</string>
+    <string name="initialization_exclude_system">排除系统应用...</string>
+    <string name="initialization_set_default_goals">设置默认目标...</string>
+    <string name="initialization_completed">初始化完成！</string>
+    <string name="initialization_error_prefix">初始化出错:</string>
+    <string name="onboarding_completed_title">引导完成</string>
+    <string name="onboarding_completed_desc">您已完成所有设置</string>
+    <string name="onboarding_next_steps_title">下一步操作</string>
+    <string name="onboarding_next_step_view_stats">查看统计</string>
+    <string name="onboarding_next_step_manage_categories">管理分类</string>
+    <string name="onboarding_next_step_configure_target">配置目标</string>
+    <string name="onboarding_next_step_start_management">开始管理</string>
+    <string name="onboarding_start_using_offtime">开始使用离线时刻</string>
+    <string name="smart_reminder_assistant">智能提醒助手</string>
+    <string name="smart_reminder_subtitle">帮助您养成良好的时间管理习惯</string>
+    <string name="reminder_settings">提醒设置</string>
+    <string name="morning_goal_reminder_title">早晨目标完成度提醒</string>
+    <string name="morning_goal_reminder_desc">每天早上提醒昨日目标完成情况</string>
+    <string name="evening_reward_reminder_title">晚间奖罚完成提醒</string>
+    <string name="evening_reward_reminder_desc">每天晚上提醒完成奖罚任务</string>
+    <string name="reminder_explanation_title">提醒说明</string>
+    <string name="morning_reminder_explanation">早晨提醒说明</string>
+    <string name="evening_reminder_explanation">晚间提醒说明</string>
+    <string name="only_enabled_categories_reminded">仅提醒已启用分类</string>
+    <string name="early_open_app_reminder">早起打开应用提醒</string>
+    <string name="completed_tasks_no_repeat">已完成任务不重复提醒</string>
+    <string name="notification_permission_tip">通知权限提示</string>
+    <string name="reminder_time">提醒时间</string>
+    <!-- 首次设置 -->
+    <string name="onboarding_first_setup">首次设置</string>
+    <string name="loading">加载中...</string>
+</resources> 
