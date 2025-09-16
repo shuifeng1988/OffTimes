@@ -29,6 +29,9 @@ import com.offtime.app.ui.components.SimpleUsageLineChart
 import com.offtime.app.ui.components.SimpleCompletionLineChart
 import com.offtime.app.ui.components.SimpleRewardChart
 import com.offtime.app.ui.components.SimplePunishmentChart
+import com.offtime.app.ui.components.AppDetailDialog
+import com.offtime.app.ui.components.OfflineTimerDialog
+import com.offtime.app.ui.components.CompletionPercentageDialog
 import com.offtime.app.ui.viewmodel.HomeViewModel
 import com.offtime.app.ui.theme.LocalResponsiveDimensions
 import com.offtime.app.utils.ScalingFactorUtils
@@ -79,6 +82,18 @@ fun HomeScreen(
     val rewardPunishmentSummary by homeViewModel.rewardPunishmentSummary.collectAsState()
     val isPunishLoading by homeViewModel.isPunishLoading.collectAsState()
     
+    // 对话框状态
+    val showAppDetailDialog by homeViewModel.showAppDetailDialog.collectAsState()
+    val appDetailList by homeViewModel.appDetailList.collectAsState()
+    val appDetailTitle by homeViewModel.appDetailTitle.collectAsState()
+    val showTimerDialog by homeViewModel.showTimerDialog.collectAsState()
+    // 完成度选择对话框状态
+    val showCompletionDialog by homeViewModel.showCompletionDialog.collectAsState()
+    val completionDialogIsReward by homeViewModel.completionDialogIsReward.collectAsState()
+    val completionDialogTaskDescription by homeViewModel.completionDialogTaskDescription.collectAsState()
+    val completionDialogTargetNumber by homeViewModel.completionDialogTargetNumber.collectAsState()
+    val defaultTimerTab by homeViewModel.defaultTimerTab.collectAsState()
+
     // 线下计时器状态
     val isTimerRunning by homeViewModel.isTimerRunning.collectAsState()
     val isTimerPaused by homeViewModel.isTimerPaused.collectAsState()
@@ -185,10 +200,15 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(optimizedLayout.tabSectionBottomSpacing)) // 使用优化设置
             }
 
-            // 第三项：主要图表区域（饼图或柱状图）
+            // 第三区域：所有图表的统一容器
             item {
+                // 当有分类被选中时，显示所有图表
                 selectedCategory?.let { category ->
-                    Column(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(optimizedLayout.sectionSpacing) // 使用统一的间距
+                    ) {
+                        // 主要图表区域（饼图或柱状图）
                         if (isStatisticsView) {
                             PieChartWithCardsRefactored(
                                 realUsageSec = realUsageSec,
@@ -239,29 +259,28 @@ fun HomeScreen(
                                 modifier = Modifier.fillMaxWidth()
                             )
                         } else {
-                            Column {
-                                HourlyBarChart(
-                                    realUsageMinutes = hourlyRealUsage,
-                                    virtualUsageMinutes = hourlyVirtualUsage,
-                                    categoryName = category.name,
-                                    categoryHourlyData = categoryHourlyData,
-                                    onBarClick = { hour ->
-                                        val currentCategory = selectedCategory
-                                        if (currentCategory != null) {
-                                            if (currentCategory.id == category.id) {
-                                                homeViewModel.showHourlyAppDetailDialog(hour, currentCategory.id, currentCategory.name)
-                                            } else {
-                                                homeViewModel.showHourlyAppDetailDialog(hour, currentCategory.id, currentCategory.name)
-                                            }
+                            HourlyBarChart(
+                                realUsageMinutes = hourlyRealUsage,
+                                virtualUsageMinutes = hourlyVirtualUsage,
+                                categoryName = category.name,
+                                categoryHourlyData = categoryHourlyData,
+                                onBarClick = { hour ->
+                                    val currentCategory = selectedCategory
+                                    if (currentCategory != null) {
+                                        if (currentCategory.id == category.id) {
+                                            homeViewModel.showHourlyAppDetailDialog(hour, currentCategory.id, currentCategory.name)
                                         } else {
-                                            homeViewModel.showHourlyAppDetailDialog(hour, category.id, category.name)
+                                            homeViewModel.showHourlyAppDetailDialog(hour, currentCategory.id, currentCategory.name)
                                         }
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
+                                    } else {
+                                        homeViewModel.showHourlyAppDetailDialog(hour, category.id, category.name)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
-                        
+
+                        // 日/周/月 筛选器
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -291,8 +310,39 @@ fun HomeScreen(
                                 )
                             }
                         }
+
+                        // 所有折线图
+                        SimpleUsageLineChart(
+                            usageData = usageLineData,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(height = optimizedCharts.lineChartHeight)
+                        )
+                        
+                        SimpleCompletionLineChart(
+                            completionData = completionLineData,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(height = optimizedCharts.lineChartHeight)
+                        )
+                        
+                        SimpleRewardChart(
+                            rewardPunishmentData = rewardPunishmentData,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(height = optimizedCharts.lineChartHeight)
+                        )
+                        
+                        SimplePunishmentChart(
+                            rewardPunishmentData = rewardPunishmentData,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(height = optimizedCharts.lineChartHeight)
+                        )
                     }
-                } ?: run {
+                }
+                // 当没有分类被选中时，显示提示信息
+                ?: run {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -313,60 +363,72 @@ fun HomeScreen(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(optimizedLayout.sectionSpacing))
-            }
-
-            item {
-                selectedCategory?.let { _ ->
-                    SimpleUsageLineChart(
-                        usageData = usageLineData,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(height = optimizedCharts.lineChartHeight)
-                    )
-                }
-                Spacer(modifier = Modifier.height(optimizedLayout.lineChartSpacing))
-            }
-                        
-            item {
-                selectedCategory?.let { _ ->
-                    SimpleCompletionLineChart(
-                        completionData = completionLineData,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(height = optimizedCharts.lineChartHeight)
-                    )
-                }
-                Spacer(modifier = Modifier.height(optimizedLayout.lineChartSpacing))
-            }
-                        
-            // 奖励图表 - 始终显示
-            item {
-                selectedCategory?.let { _ ->
-                    SimpleRewardChart(
-                        rewardPunishmentData = rewardPunishmentData,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(height = optimizedCharts.lineChartHeight)
-                    )
-                }
-                Spacer(modifier = Modifier.height(optimizedLayout.lineChartSpacing))
-            }
-            
-            // 惩罚图表 - 始终显示
-            item {
-                selectedCategory?.let { _ ->
-                    SimplePunishmentChart(
-                        rewardPunishmentData = rewardPunishmentData,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(height = optimizedCharts.lineChartHeight)
-                    )
-                }
-                Spacer(modifier = Modifier.height(optimizedLayout.lineChartSpacing))
             }
         } // End LazyColumn
     } // End SwipeRefresh
+    
+    // 应用详情对话框
+    AppDetailDialog(
+        showDialog = showAppDetailDialog,
+        title = appDetailTitle,
+        appDetailList = appDetailList,
+        onDismiss = { homeViewModel.hideAppDetailDialog() }
+    )
+
+    // 线下计时/倒计时 对话框
+    OfflineTimerDialog(
+        showDialog = showTimerDialog,
+        isTimerRunning = isTimerRunning,
+        isTimerPaused = isTimerPaused,
+        hours = timerHours,
+        minutes = timerMinutes,
+        seconds = timerSecondsUnit,
+        onStartTimer = { homeViewModel.startOfflineTimer() },
+        onPauseTimer = { homeViewModel.pauseOfflineTimer() },
+        onResumeTimer = { homeViewModel.resumeOfflineTimer() },
+        onStopTimer = {
+            homeViewModel.stopOfflineTimer()
+            // 确保对话框立即关闭
+            homeViewModel.hideTimerDialog()
+        },
+        onBackgroundMode = { homeViewModel.enterTimerBackgroundMode() },
+        onDismiss = { homeViewModel.hideTimerDialog() },
+        // CountDown 相关
+        isCountdownRunning = isCurrentCategoryCountdownTiming,
+        isCountdownPaused = isCountdownTimerPaused,
+        countdownHours = countdownHours,
+        countdownMinutes = countdownMinutes,
+        countdownSeconds = countdownSecondsUnit,
+        onStartCountdown = { minutes ->
+            homeViewModel.setCountdownDuration(minutes)
+            homeViewModel.startCountdownTimer()
+        },
+        onPauseCountdown = { homeViewModel.pauseCountdownTimer() },
+        onResumeCountdown = { homeViewModel.resumeCountdownTimer() },
+        onStopCountdown = {
+            homeViewModel.stopCountdownTimer()
+            // 确保对话框立即关闭
+            homeViewModel.hideTimerDialog()
+        },
+        onCountdownBackgroundMode = { homeViewModel.enterCountdownBackgroundMode() },
+        defaultTab = defaultTimerTab
+    )
+
+    // 奖励/惩罚 完成度选择对话框
+    CompletionPercentageDialog(
+        isVisible = showCompletionDialog,
+        isReward = completionDialogIsReward,
+        taskDescription = completionDialogTaskDescription,
+        targetNumber = completionDialogTargetNumber,
+        onDismiss = { homeViewModel.dismissCompletionDialog() },
+        onConfirm = { percent ->
+            if (completionDialogIsReward) {
+                homeViewModel.completeYesterdayReward(percent)
+            } else {
+                homeViewModel.completeYesterdayPunishment(percent)
+            }
+        }
+    )
 }
 
 @Composable

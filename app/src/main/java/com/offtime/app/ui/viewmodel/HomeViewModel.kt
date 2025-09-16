@@ -329,7 +329,8 @@ class HomeViewModel @Inject constructor(
         val startTime: Long = 0,
         val pausedDuration: Long = 0,
         val lastPauseTime: Long = 0,
-        val timerJob: Job? = null
+        val timerJob: Job? = null,
+        val isInBackground: Boolean = false
     )
     
     // 每个分类的计时器状态
@@ -364,6 +365,7 @@ class HomeViewModel @Inject constructor(
         _timerHours.value = state.hours
         _timerMinutes.value = state.minutes
         _timerSecondsUnit.value = state.secondsUnit
+        _isTimerInBackground.value = state.isInBackground
     }
     
     // 当前显示的计时器状态（基于选中的分类）
@@ -393,30 +395,64 @@ class HomeViewModel @Inject constructor(
     private var currentTimerSessionId: Int? = null
     private var currentTimingCategoryId: Int? = null // 当前正在计时的分类ID
 
-    // 定时计时器状态管理
+    // 定时计时器状态管理（对话框可见性）
     private val _showCountdownDialog = MutableStateFlow(false)
     val showCountdownDialog: StateFlow<Boolean> = _showCountdownDialog.asStateFlow()
-    
+
+    // 当前选中分类的倒计时UI状态（从每分类状态映射而来）
     private val _isCountdownTimerRunning = MutableStateFlow(false)
     val isCountdownTimerRunning: StateFlow<Boolean> = _isCountdownTimerRunning.asStateFlow()
-    
     private val _isCountdownTimerPaused = MutableStateFlow(false)
     val isCountdownTimerPaused: StateFlow<Boolean> = _isCountdownTimerPaused.asStateFlow()
-    
-    private val _countdownTimerSeconds = MutableStateFlow(1800) // 默认30分钟 = 1800秒
+    private val _countdownTimerSeconds = MutableStateFlow(1800)
     val countdownTimerSeconds: StateFlow<Int> = _countdownTimerSeconds.asStateFlow()
-    
     private val _countdownHours = MutableStateFlow(0)
     val countdownHours: StateFlow<Int> = _countdownHours.asStateFlow()
-    
     private val _countdownMinutes = MutableStateFlow(30)
     val countdownMinutes: StateFlow<Int> = _countdownMinutes.asStateFlow()
-    
     private val _countdownSecondsUnit = MutableStateFlow(0)
     val countdownSecondsUnit: StateFlow<Int> = _countdownSecondsUnit.asStateFlow()
-    
     private val _countdownInitialMinutes = MutableStateFlow(30)
     val countdownInitialMinutes: StateFlow<Int> = _countdownInitialMinutes.asStateFlow()
+
+    // 每分类倒计时状态
+    data class CategoryCountdownState(
+        val isRunning: Boolean = false,
+        val isPaused: Boolean = false,
+        val startTime: Long = 0L,
+        val pausedDuration: Long = 0L,
+        val lastPauseTime: Long = 0L,
+        val sessionId: Int? = null,
+        val job: Job? = null,
+        val initialSeconds: Int = 1800,
+        val remainingSeconds: Int = initialSeconds,
+        val hours: Int = 0,
+        val minutes: Int = initialSeconds / 60,
+        val seconds: Int = 0,
+        val isInBackground: Boolean = false
+    )
+    private val categoryCountdownStates = mutableMapOf<Int, CategoryCountdownState>()
+
+    private fun getCategoryCountdownState(categoryId: Int): CategoryCountdownState {
+        return categoryCountdownStates[categoryId] ?: CategoryCountdownState(initialSeconds = _countdownInitialMinutes.value * 60)
+    }
+
+    private fun updateCategoryCountdownState(categoryId: Int, state: CategoryCountdownState) {
+        categoryCountdownStates[categoryId] = state
+        if (_selectedCategory.value?.id == categoryId) {
+            updateCurrentCountdownUIState(state)
+        }
+    }
+
+    private fun updateCurrentCountdownUIState(state: CategoryCountdownState) {
+        _isCountdownTimerRunning.value = state.isRunning
+        _isCountdownTimerPaused.value = state.isPaused
+        _countdownTimerSeconds.value = state.remainingSeconds
+        _countdownHours.value = state.hours
+        _countdownMinutes.value = state.minutes
+        _countdownSecondsUnit.value = state.seconds
+        _isCountdownInBackground.value = state.isInBackground
+    }
     
     private var countdownJob: Job? = null
     private var countdownStartTime: Long = 0
@@ -1996,6 +2032,7 @@ class HomeViewModel @Inject constructor(
                 _showAppDetailDialog.value = true
                 
                 android.util.Log.d("HomeViewModel", "应用详情查询完成: 找到${appDetails.size}个应用")
+                android.util.Log.d("HomeViewModel", "对话框状态已设置: showAppDetailDialog = true, title = ${_appDetailTitle.value}")
                 
             } catch (e: Exception) {
                 android.util.Log.e("HomeViewModel", "显示应用详情对话框失败", e)
@@ -4239,6 +4276,7 @@ class HomeViewModel @Inject constructor(
                 _showAppDetailDialog.value = true
                 
                 android.util.Log.d("HomeViewModel", "${hour}点应用详情查询完成: 找到${appDetails.size}个应用")
+                android.util.Log.d("HomeViewModel", "${hour}点对话框状态已设置: showAppDetailDialog = true, title = ${_appDetailTitle.value}")
                 
             } catch (e: Exception) {
                 android.util.Log.e("HomeViewModel", "显示${hour}点应用详情对话框失败", e)
@@ -4741,6 +4779,16 @@ class HomeViewModel @Inject constructor(
      * 显示计时器对话框
      */
     fun showTimerDialog() {
+        val catId = _selectedCategory.value?.id
+        if (catId != null) {
+            val timerState = getCategoryTimerState(catId)
+            val countdownState = getCategoryCountdownState(catId)
+            _defaultTimerTab.value = when {
+                timerState.isRunning -> 0 // 优先展示正在运行的 Timer
+                countdownState.isRunning -> 1 // 其次展示正在运行的 CountDown
+                else -> _defaultTimerTab.value // 否则保持上次选择
+            }
+        }
         _showTimerDialog.value = true
     }
     
@@ -4761,17 +4809,24 @@ class HomeViewModel @Inject constructor(
      */
     fun enterTimerBackgroundMode() {
         _showTimerDialog.value = false
-        _isTimerInBackground.value = true
-        android.util.Log.d("HomeViewModel", "线下计时进入背景模式")
+        val catId = _selectedCategory.value?.id ?: return
+        val state = getCategoryTimerState(catId)
+        if (state.isRunning) {
+            updateCategoryTimerState(catId, state.copy(isInBackground = true))
+        }
+        android.util.Log.d("HomeViewModel", "线下计时进入背景模式: 分类=$catId")
     }
     
     /**
      * 退出背景计时模式（线下计时）
      */
     fun exitTimerBackgroundMode() {
-        _isTimerInBackground.value = false
+        val catId = _selectedCategory.value?.id ?: return
+        val state = getCategoryTimerState(catId)
+        updateCategoryTimerState(catId, state.copy(isInBackground = false))
+        _defaultTimerTab.value = 0 // 返回弹窗时默认展示 Timer 页
         _showTimerDialog.value = true
-        android.util.Log.d("HomeViewModel", "线下计时退出背景模式")
+        android.util.Log.d("HomeViewModel", "线下计时退出背景模式: 分类=$catId")
     }
     
     /**
@@ -4845,6 +4900,67 @@ class HomeViewModel @Inject constructor(
             } catch (e: Exception) {
                 android.util.Log.e("HomeViewModel", "开始线下计时失败", e)
             }
+        }
+    }
+
+    /**
+     * 停止除指定分类外的所有正在运行的线下计时（确保同一时间只有一个分类在计时）
+     */
+    private suspend fun stopAllRunningTimersExcept(exceptCategoryId: Int?) {
+        // 如果存在任何运行中的计时，先停止前台服务，避免残留通知与前台状态
+        if (isAnyTimerRunning()) {
+            try {
+                com.offtime.app.service.OfflineTimerService.stopTimer(context)
+            } catch (e: Exception) {
+                android.util.Log.w("HomeViewModel", "停止前台计时服务时发生异常: ${e.message}")
+            }
+        }
+
+        val now = System.currentTimeMillis()
+        val runningCategoryIds = categoryTimerStates
+            .filter { (catId, state) -> state.isRunning && (exceptCategoryId == null || catId != exceptCategoryId) }
+            .map { it.key }
+
+        for (catId in runningCategoryIds) {
+            stopTimerForCategory(catId, now)
+        }
+    }
+
+    /**
+     * 停止指定分类的线下计时并持久化（不依赖当前选中分类）
+     */
+    private suspend fun stopTimerForCategory(categoryId: Int, now: Long = System.currentTimeMillis()) {
+        val state = getCategoryTimerState(categoryId)
+        if (!state.isRunning) return
+
+        // 计算已用时长（秒）
+        val effectiveEndTime = if (state.isPaused && state.lastPauseTime > 0) state.lastPauseTime else now
+        val elapsedSeconds = ((effectiveEndTime - state.startTime - state.pausedDuration) / 1000L).toInt().coerceAtLeast(0)
+
+        // 持久化会话
+        val sessionId = state.sessionId
+        if (sessionId != null) {
+            try {
+                val success = timerSessionRepository.stopTimer(sessionId, elapsedSeconds)
+                android.util.Log.d("HomeViewModel", "已停止分类$categoryId 的线下计时，写入时长=${elapsedSeconds}秒，success=$success")
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "停止分类$categoryId 计时并保存失败", e)
+            }
+        }
+
+        // 取消该分类的UI更新循环
+        state.timerJob?.cancel()
+
+        // 重置该分类状态并同步到UI（若该分类为当前选中）
+        updateCategoryTimerState(categoryId, CategoryTimerState())
+
+        // 若当前兼容性字段指向此分类，清理之
+        if (currentTimingCategoryId == categoryId) {
+            currentTimerSessionId = null
+            currentTimingCategoryId = null
+            pausedDuration = 0
+            timerJob?.cancel()
+            timerJob = null
         }
     }
     
@@ -4926,7 +5042,6 @@ class HomeViewModel @Inject constructor(
                 }
                 
                 _showTimerDialog.value = false
-                _isTimerInBackground.value = false
                 
                 // 更新兼容性字段
                 if (currentTimingCategoryId == categoryId) {
@@ -5020,16 +5135,14 @@ class HomeViewModel @Inject constructor(
      */
     fun isCurrentCategoryCountdownTiming(): Boolean {
         val selectedCategoryId = _selectedCategory.value?.id
-        return selectedCategoryId != null && 
-               selectedCategoryId == currentCountdownTimingCategoryId && 
-               _isCountdownTimerRunning.value
+        return selectedCategoryId?.let { getCategoryCountdownState(it).isRunning } ?: false
     }
     
     /**
      * 判断是否有任何分类正在定时
      */
     fun isAnyCountdownTimerRunning(): Boolean {
-        return currentCountdownTimingCategoryId != null && _isCountdownTimerRunning.value
+        return categoryCountdownStates.values.any { it.isRunning }
     }
 
     // ============ 定时计时功能 ============
@@ -5058,19 +5171,23 @@ class HomeViewModel @Inject constructor(
      */
     fun enterCountdownBackgroundMode() {
         _showCountdownDialog.value = false
-        _showTimerDialog.value = false  // 关闭Timer弹窗
-        _isCountdownInBackground.value = true
-
+        _showTimerDialog.value = false
+        val catId = _selectedCategory.value?.id ?: return
+        val state = getCategoryCountdownState(catId)
+        if (state.isRunning) {
+            updateCategoryCountdownState(catId, state.copy(isInBackground = true))
+        }
     }
     
     /**
      * 退出背景计时模式（定时计时）
      */
     fun exitCountdownBackgroundMode() {
-        _isCountdownInBackground.value = false
-        _showTimerDialog.value = true  // 显示Timer对话框而不是独立的CountDown对话框
-        _defaultTimerTab.value = 1     // 默认显示CountDown标签页
-
+        val catId = _selectedCategory.value?.id ?: return
+        val state = getCategoryCountdownState(catId)
+        updateCategoryCountdownState(catId, state.copy(isInBackground = false))
+        _defaultTimerTab.value = 1 // 返回弹窗时默认展示 CountDown 页
+        _showTimerDialog.value = true
     }
     
     /**
@@ -5110,28 +5227,31 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val currentCategory = _selectedCategory.value ?: return@launch
-                
+                val catId = currentCategory.id
                 android.util.Log.d("HomeViewModel", "开始定时计时: 分类=${currentCategory.name}, 时长=${_countdownInitialMinutes.value}分钟")
-                
-                // 创建计时器会话
-                val session = timerSessionRepository.startTimer(currentCategory.id)
+
+                val session = timerSessionRepository.startTimer(catId)
                 if (session != null) {
-                    currentCountdownSessionId = session.id
-                    currentCountdownTimingCategoryId = currentCategory.id // 记录正在定时的分类ID
-                    countdownStartTime = System.currentTimeMillis()
-                    countdownPausedDuration = 0
-                    
-                    _isCountdownTimerRunning.value = true
-                    _isCountdownTimerPaused.value = false
-                    
-                    // 开始倒计时循环
-                    startCountdownLoop()
-                    
+                    val start = System.currentTimeMillis()
+                    val initialSec = _countdownInitialMinutes.value * 60
+                    val newState = getCategoryCountdownState(catId).copy(
+                        isRunning = true,
+                        isPaused = false,
+                        startTime = start,
+                        pausedDuration = 0,
+                        lastPauseTime = 0,
+                        sessionId = session.id,
+                        initialSeconds = initialSec,
+                        remainingSeconds = initialSec
+                    )
+                    updateCategoryCountdownState(catId, newState)
+                    val loopJob = startCountdownLoopForCategory(catId)
+                    updateCategoryCountdownState(catId, getCategoryCountdownState(catId).copy(job = loopJob))
+
                     android.util.Log.d("HomeViewModel", "定时计时开始成功: sessionId=${session.id}")
                 } else {
                     android.util.Log.e("HomeViewModel", "创建定时计时器会话失败")
                 }
-                
             } catch (e: Exception) {
                 android.util.Log.e("HomeViewModel", "开始定时计时失败", e)
             }
@@ -5142,28 +5262,30 @@ class HomeViewModel @Inject constructor(
      * 暂停定时计时
      */
     fun pauseCountdownTimer() {
-        android.util.Log.d("HomeViewModel", "暂停定时计时")
-        
-        lastCountdownPauseTime = System.currentTimeMillis()
-        _isCountdownTimerPaused.value = true
-        
-        // 停止倒计时循环
-        countdownJob?.cancel()
-        countdownJob = null
+        val catId = _selectedCategory.value?.id ?: return
+        android.util.Log.d("HomeViewModel", "暂停定时计时: 分类=$catId")
+        val state = getCategoryCountdownState(catId)
+        val newState = state.copy(isPaused = true, lastPauseTime = System.currentTimeMillis())
+        state.job?.cancel()
+        updateCategoryCountdownState(catId, newState)
     }
     
     /**
      * 继续定时计时
      */
     fun resumeCountdownTimer() {
-        android.util.Log.d("HomeViewModel", "继续定时计时")
-        
-        // 累计暂停时间
-        countdownPausedDuration += System.currentTimeMillis() - lastCountdownPauseTime
-        _isCountdownTimerPaused.value = false
-        
-        // 重新开始倒计时循环
-        startCountdownLoop()
+        val catId = _selectedCategory.value?.id ?: return
+        android.util.Log.d("HomeViewModel", "继续定时计时: 分类=$catId")
+        val state = getCategoryCountdownState(catId)
+        val pausedDelta = if (state.isPaused && state.lastPauseTime > 0) System.currentTimeMillis() - state.lastPauseTime else 0
+        val newState = state.copy(
+            isPaused = false,
+            pausedDuration = state.pausedDuration + pausedDelta,
+            lastPauseTime = 0
+        )
+        updateCategoryCountdownState(catId, newState)
+        val loopJob = startCountdownLoopForCategory(catId)
+        updateCategoryCountdownState(catId, getCategoryCountdownState(catId).copy(job = loopJob))
     }
     
     /**
@@ -5172,39 +5294,9 @@ class HomeViewModel @Inject constructor(
     fun stopCountdownTimer() {
         viewModelScope.launch {
             try {
-                android.util.Log.d("HomeViewModel", "停止定时计时")
-                
-                // 停止倒计时循环
-                countdownJob?.cancel()
-                countdownJob = null
-                
-                val sessionId = currentCountdownSessionId
-                if (sessionId != null) {
-                    // 计算实际使用时长（初始时长 - 剩余时长）
-                    val remainingSeconds = _countdownTimerSeconds.value
-                    val actualUsedSeconds = initialCountdownSeconds - remainingSeconds
-                    
-                    android.util.Log.d("HomeViewModel", "定时计时数据: 初始${initialCountdownSeconds}秒, 剩余${remainingSeconds}秒, 实际使用${actualUsedSeconds}秒")
-                    
-                    // 保存到数据库（使用实际使用时长）
-                    val success = timerSessionRepository.stopTimer(sessionId, actualUsedSeconds)
-                    if (success) {
-                        android.util.Log.d("HomeViewModel", "定时计时数据保存成功: 时长=${actualUsedSeconds}秒")
-                        
-                        // 刷新数据显示
-                        _selectedCategory.value?.let { category ->
-                            loadUsageData(category.id)
-                        }
-                    } else {
-                        android.util.Log.e("HomeViewModel", "保存定时计时数据失败")
-                    }
-                } else {
-                    android.util.Log.w("HomeViewModel", "没有找到当前定时计时会话ID")
-                }
-                
-                // 重置状态
-                resetCountdownState()
-                
+                val catId = _selectedCategory.value?.id ?: return@launch
+                android.util.Log.d("HomeViewModel", "停止定时计时: 分类=$catId")
+                stopCountdownForCategory(catId)
             } catch (e: Exception) {
                 android.util.Log.e("HomeViewModel", "停止定时计时失败", e)
             }
@@ -5214,40 +5306,51 @@ class HomeViewModel @Inject constructor(
     /**
      * 开始倒计时循环（每秒更新一次）
      */
-    private fun startCountdownLoop() {
-        countdownJob = viewModelScope.launch {
-            while (_isCountdownTimerRunning.value && !_isCountdownTimerPaused.value) {
-                val currentTime = System.currentTimeMillis()
-                val elapsedSeconds = ((currentTime - countdownStartTime - countdownPausedDuration) / 1000).toInt()
-                val remainingSeconds = (initialCountdownSeconds - elapsedSeconds).coerceAtLeast(0)
-                
-                _countdownTimerSeconds.value = remainingSeconds
-                updateCountdownDisplay(remainingSeconds)
-                
-                // 更新数据库中的会话时长（使用已经过的时间）
-                currentCountdownSessionId?.let { sessionId ->
-                    timerSessionRepository.updateTimer(sessionId, elapsedSeconds)
-                }
-                
-                // 如果倒计时结束，自动停止
-                if (remainingSeconds <= 0) {
-                    android.util.Log.d("HomeViewModel", "倒计时结束，自动停止")
-                    
-                    // 播放定时器结束提醒音
-                    try {
-                        val soundManager = com.offtime.app.utils.SoundManager.getInstance(context)
-                        soundManager.playCountdownFinishedSound()
-                        android.util.Log.d("HomeViewModel", "定时器结束提醒音已播放")
-                    } catch (e: Exception) {
-                        android.util.Log.e("HomeViewModel", "播放定时器结束提醒音失败", e)
-                    }
-                    
-                    stopCountdownTimer()
-                    break
-                }
-                
-                kotlinx.coroutines.delay(1000) // 每秒更新一次
+    private suspend fun stopCountdownForCategory(catId: Int) {
+        val state = getCategoryCountdownState(catId)
+        state.job?.cancel()
+        val sessionId = state.sessionId
+        if (sessionId != null) {
+            val actualUsed = (state.initialSeconds - state.remainingSeconds).coerceAtLeast(0)
+            try {
+                val success = timerSessionRepository.stopTimer(sessionId, actualUsed)
+                android.util.Log.d("HomeViewModel", "保存分类$catId 倒计时记录: used=$actualUsed, success=$success")
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "保存分类$catId 倒计时记录失败", e)
             }
+        }
+        updateCategoryCountdownState(catId, CategoryCountdownState(initialSeconds = _countdownInitialMinutes.value * 60))
+    }
+
+    private fun startCountdownLoopForCategory(catId: Int): Job = viewModelScope.launch {
+        while (true) {
+            val state = getCategoryCountdownState(catId)
+            if (!state.isRunning || state.isPaused) break
+            val elapsed = ((System.currentTimeMillis() - state.startTime - state.pausedDuration) / 1000).toInt()
+            val remaining = (state.initialSeconds - elapsed).coerceAtLeast(0)
+            val hours = remaining / 3600
+            val minutes = (remaining % 3600) / 60
+            val seconds = remaining % 60
+            updateCategoryCountdownState(catId, state.copy(
+                remainingSeconds = remaining,
+                hours = hours,
+                minutes = minutes,
+                seconds = seconds
+            ))
+            // 使用该分类自己的会话ID写入数据库
+            val sessionId = getCategoryCountdownState(catId).sessionId
+            if (sessionId != null) {
+                try { timerSessionRepository.updateTimer(sessionId, elapsed) } catch (_: Exception) {}
+            }
+            if (remaining <= 0) {
+                try {
+                    val soundManager = com.offtime.app.utils.SoundManager.getInstance(context)
+                    soundManager.playCountdownFinishedSound()
+                } catch (_: Exception) {}
+                stopCountdownForCategory(catId)
+                break
+            }
+            kotlinx.coroutines.delay(1000)
         }
     }
     
@@ -5268,19 +5371,11 @@ class HomeViewModel @Inject constructor(
      * 重置定时计时状态
      */
     private fun resetCountdownState() {
-        _isCountdownTimerRunning.value = false
-        _isCountdownTimerPaused.value = false
+        // 不再全局重置；每分类独立状态，UI随选中分类映射
         _showCountdownDialog.value = false
         _isCountdownInBackground.value = false
-        currentCountdownSessionId = null
-        currentCountdownTimingCategoryId = null // 清除正在定时的分类ID
-        countdownPausedDuration = 0
-        
-        // 重置为默认时长
-        val defaultSeconds = _countdownInitialMinutes.value * 60
-        _countdownTimerSeconds.value = defaultSeconds
-        initialCountdownSeconds = defaultSeconds
-        updateCountdownDisplay(defaultSeconds)
+        // 更新当前分类UI状态映射
+        _selectedCategory.value?.id?.let { updateCurrentCountdownUIState(getCategoryCountdownState(it)) }
     }
     
     // ================== 订阅相关方法 ==================
