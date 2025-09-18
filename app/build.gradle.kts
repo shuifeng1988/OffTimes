@@ -15,8 +15,8 @@ android {
     defaultConfig {
         minSdk = 24
         targetSdk = 35
-        versionCode = 21
-        versionName = "1.2.0"
+        versionCode = 24
+        versionName = "1.3.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -94,6 +94,12 @@ android {
             ndk {
                 debugSymbolLevel = "FULL"
             }
+            // 确保生成mapping文件用于崩溃分析
+            isDebuggable = false
+            isJniDebuggable = false
+            isRenderscriptDebuggable = false
+            // 启用崩溃报告
+            manifestPlaceholders["crashlyticsCollectionEnabled"] = true
         }
         debug {
             isMinifyEnabled = false
