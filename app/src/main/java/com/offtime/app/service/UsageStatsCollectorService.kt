@@ -1,5 +1,6 @@
 package com.offtime.app.service
 
+import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -8,6 +9,7 @@ import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Intent
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
@@ -16,7 +18,9 @@ import com.offtime.app.R
 import com.offtime.app.data.repository.AppSessionRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
+import kotlinx.coroutines.delay
 import javax.inject.Inject
+import java.util.Locale
 
 /**
  * 应用使用统计收集服务
@@ -65,22 +69,22 @@ class UsageStatsCollectorService : Service() {
         getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager 
     }
     
+    // Activity管理器，用于获取当前前台应用
+    private val activityManager by lazy {
+        getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+    }
+    
     // 标识服务是否正在收集数据
     private var isCollecting = false
     
-    /**
-     * 当前活跃应用映射表
-     * 
-     * 在整个Service生命周期内保存仍在前台运行、尚未收到ACTIVITY_PAUSED的应用
-     * - key: 应用包名(packageName)
-     * - value: 应用启动时间戳(startTime)
-     * 
-     * 用途：
-     * - 匹配ACTIVITY_RESUMED和ACTIVITY_PAUSED事件
-     * - 计算应用的实际使用时长
-     * - 处理服务重启时的状态恢复
-     */
-    private val currentActive: MutableMap<String, Long> = mutableMapOf()
+    // 新的状态机变量
+    private var currentForegroundPackage: String? = null
+    private var currentSessionStartTime: Long? = null
+    
+    // 暂停的会话信息（用于处理OffTimes短暂切换）
+    private var pausedSessionPackage: String? = null
+    private var pausedSessionStartTime: Long? = null
+    private var pausedSessionPauseTime: Long? = null
     
     companion object {
         private const val TAG = "UsageStatsCollector"
@@ -235,8 +239,48 @@ class UsageStatsCollectorService : Service() {
             // 立即拉取一次事件
             pullEvents()
             
-            Log.d(TAG, "数据收集服务已启动，等待UnifiedUpdateService的统一调度")
-            // 不再启动独立的定时循环，改为等待UnifiedUpdateService的调用
+            Log.d(TAG, "数据收集服务已启动，启动定时更新机制")
+            // 启动定时更新活跃应用时长的协程
+            startPeriodicActiveAppsUpdate()
+        }
+    }
+    
+    /**
+     * 获取当前真正的前台应用包名
+     * 注意：在后台服务中，此API可能返回不准确的结果，谨慎使用
+     */
+    private fun getCurrentForegroundApp(): String? {
+        return try {
+            val runningTasks = activityManager.getRunningTasks(1)
+            if (runningTasks.isNotEmpty()) {
+                val topActivity = runningTasks[0].topActivity
+                topActivity?.packageName
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "无法获取当前前台应用", e)
+            null
+        }
+    }
+    
+    /**
+     * 启动定期更新活跃应用时长的协程
+     */
+    private fun startPeriodicActiveAppsUpdate() {
+        serviceScope.launch {
+            while (isCollecting) {
+                try {
+                    // 每30秒更新一次活跃应用的使用时长
+                    delay(30_000)
+                    updateActiveAppsDuration()
+                } catch (e: Exception) {
+                    Log.e(TAG, "定期更新活跃应用时长失败", e)
+                    // 出错后等待一段时间再继续
+                    delay(10_000)
+                }
+            }
+            Log.d(TAG, "定期更新活跃应用时长协程已停止")
         }
     }
     
@@ -248,11 +292,13 @@ class UsageStatsCollectorService : Service() {
         try {
             val currentTime = System.currentTimeMillis()
             
-            if (currentActive.isNotEmpty()) {
-                Log.d(TAG, "实时统计 → 当前活跃应用: ${currentActive.keys.joinToString(", ")}")
+            // 使用新的状态机变量
+            if (currentForegroundPackage != null && currentSessionStartTime != null) {
+                val packageName = currentForegroundPackage!!
+                val startTime = currentSessionStartTime!!
                 
-                // 为每个当前活跃的应用更新使用时长
-                currentActive.forEach { (packageName, startTime) ->
+                Log.d(TAG, "实时统计 → 当前活跃应用: $packageName")
+                
                     val currentDuration = (currentTime - startTime) / 1000
                     Log.d(TAG, "实时统计 → $packageName, 已使用${currentDuration}秒")
                     
@@ -265,7 +311,6 @@ class UsageStatsCollectorService : Service() {
                         )
                     } catch (e: Exception) {
                         Log.e(TAG, "实时更新应用时长失败: $packageName", e)
-                    }
                 }
             } else {
                 Log.d(TAG, "实时统计 → 当前无活跃应用")
@@ -277,55 +322,50 @@ class UsageStatsCollectorService : Service() {
     }
     
     /**
-     * 恢复活跃应用状态（服务重启时）
+     * 恢复活跃应用状态（服务重启时），适配新的状态机
      */
     private fun restoreActiveApps() {
         serviceScope.launch {
             try {
                 val now = System.currentTimeMillis()
-                val lookbackTime = now - 300_000 // 回看5分钟
+                // 回看15分钟以防万一
+                val lookbackTime = now - (15 * 60 * 1000)
                 
-                Log.d(TAG, "尝试恢复活跃应用状态")
+                Log.d(TAG, "尝试恢复活跃应用状态（状态机）")
                 
                 val usageEvents = usageStatsManager.queryEvents(lookbackTime, now)
-                val tempActive = mutableMapOf<String, Long>()
+                var lastForegroundApp: String? = null
+                var lastForegroundTime: Long = 0
                 
-                // 收集最近的RESUMED和PAUSED事件
+                // 遍历近期事件，找到最后一个进入前台的应用
                 while (usageEvents.hasNextEvent()) {
                     val event = UsageEvents.Event()
                     usageEvents.getNextEvent(event)
                     
-                    // 使用与主事件处理相同的逻辑
-                    val isForegroundEvent = when (event.eventType) {
-                        UsageEvents.Event.ACTIVITY_RESUMED,  // type=1
-                        1 -> true  // ACTIVITY_RESUMED/MOVE_TO_FOREGROUND
-                        19 -> true  // ACTIVITY_RESUMED (某些设备)
-                        12 -> true  // USER_INTERACTION
-                        else -> false
+                    val eventPackageName = event.packageName
+                    if (eventPackageName == null || eventPackageName.startsWith("com.offtime.app")) {
+                        continue
                     }
-                    
-                    val isBackgroundEvent = when (event.eventType) {
-                        UsageEvents.Event.ACTIVITY_PAUSED,   // type=2
-                        2 -> true  // ACTIVITY_PAUSED/MOVE_TO_BACKGROUND
-                        20 -> true  // ACTIVITY_PAUSED (某些设备)
-                        23 -> true  // ACTIVITY_STOPPED
-                        else -> false
-                    }
-                    
-                    when {
-                        isForegroundEvent -> {
-                            tempActive[event.packageName] = event.timeStamp
+
+                    when (event.eventType) {
+                        UsageEvents.Event.ACTIVITY_RESUMED, 1, 19 -> {
+                            lastForegroundApp = eventPackageName
+                            lastForegroundTime = event.timeStamp
                         }
-                        isBackgroundEvent -> {
-                            tempActive.remove(event.packageName)
+                        UsageEvents.Event.ACTIVITY_PAUSED, 2, 20, 23 -> {
+                            if (eventPackageName == lastForegroundApp) {
+                                // 如果最后一个前台应用已经关闭，则没有需要恢复的应用
+                                lastForegroundApp = null
+                            }
                         }
                     }
                 }
-                
-                // 将仍然活跃的应用添加到currentActive
-                if (tempActive.isNotEmpty()) {
-                    currentActive.putAll(tempActive)
-                    Log.d(TAG, "恢复了${tempActive.size}个活跃应用: ${tempActive.keys.joinToString(", ")}")
+
+                // 如果找到了最后一个前台应用，并且它尚未关闭，则恢复它
+                if (lastForegroundApp != null) {
+                    currentForegroundPackage = lastForegroundApp
+                    currentSessionStartTime = lastForegroundTime
+                    Log.d(TAG, "✅ 恢复了活跃应用: $lastForegroundApp, 开始时间: $lastForegroundTime")
                 } else {
                     Log.d(TAG, "没有发现需要恢复的活跃应用")
                 }
@@ -385,175 +425,154 @@ class UsageStatsCollectorService : Service() {
         
         try {
             val usageEvents = usageStatsManager.queryEvents(beginTime, endTime)
-            Log.d(TAG, "开始处理事件: ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(beginTime)} - ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(endTime)}")
+            Log.d(TAG, "开始处理事件: ${java.text.SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(beginTime)} - ${java.text.SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(endTime)}")
 
-            // Samsung设备特殊检查
-            val isSamsung = android.os.Build.MANUFACTURER.equals("samsung", ignoreCase = true)
-            if (isSamsung) {
-                Log.d(TAG, "检测到Samsung设备，启用兼容性处理")
-            }
-
+            // 状态机事件处理循环
             while (usageEvents.hasNextEvent()) {
                 val event = UsageEvents.Event()
                 usageEvents.getNextEvent(event)
                 lastEventTs = event.timeStamp
                 eventCount++
 
-                // Samsung设备的Chrome包名可能不同
-                val isChrome = event.packageName.contains("chrome", ignoreCase = true) || 
-                              event.packageName.contains("browser", ignoreCase = true)
+                // 核心修复：过滤系统事件和OffTimes的后台事件
+                val eventPackageName = event.packageName
+                if (eventPackageName == null) {
+                    continue
+                }
                 
-                if (isChrome) {
-                    val eventTime = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(event.timeStamp)
-                    Log.d(TAG, "🔍 检测到浏览器事件: ${event.packageName}, 类型=${event.eventType}, 时间=$eventTime")
+                // 过滤明显的系统事件
+                if (eventPackageName.startsWith("android") ||
+                    eventPackageName.startsWith("com.android.systemui") ||
+                    eventPackageName.startsWith("com.google.android.apps.nexuslauncher") ||
+                    eventPackageName.startsWith("com.google.android.permissioncontroller") ||
+                    eventPackageName.startsWith("com.android.vending") ||
+                    eventPackageName.startsWith("com.google.android.gms")) {
+                    continue
+                }
+                
+                // 特殊处理OffTimes：只过滤后台事件，保留真正的前台使用
+                if (eventPackageName.startsWith("com.offtime.app")) {
+                    // 如果一个事件声称OffTimes到了前台...
+                    if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED || event.eventType == 1) { // 不再检查19事件
+                        // ...我们就去核实一下当前真正在前台的应用是不是它
+                        val actualForegroundApp = getForegroundApp()
+                        
+                        // 如果实际前台应用不是OffTimes，那这个事件就是后台任务的干扰，必须忽略
+                        // 增加白名单，允许从桌面启动
+                        val launcherPackage = "com.google.android.apps.nexuslauncher"
+                        if (actualForegroundApp != null && 
+                            !actualForegroundApp.startsWith("com.offtime.app") &&
+                            currentForegroundPackage != launcherPackage) {
+                            Log.d(TAG, "🚫 背景任务干扰检测: UsageEvent显示OffTimes进入前台，但实际前台应用是 $actualForegroundApp。忽略此事件。")
+                            continue // 核心修复：跳过这个虚假事件
+                        }
+                    }
+                }
+                
+                // 额外保护：只处理用户真正使用的应用
+                if (!isUserApp(eventPackageName)) {
+                    continue
                 }
 
-                // 判断事件是否表示前台状态
-                val isForegroundEvent = when (event.eventType) {
-                    UsageEvents.Event.ACTIVITY_RESUMED,  // type=1, 标准前台事件
-                    1 -> true  // ACTIVITY_RESUMED/MOVE_TO_FOREGROUND
-                    19 -> true  // ACTIVITY_RESUMED (某些设备)
-                    12 -> true  // USER_INTERACTION
-                    else -> false
-                }
-                
-                // 判断事件是否表示后台状态  
-                val isBackgroundEvent = when (event.eventType) {
-                    UsageEvents.Event.ACTIVITY_PAUSED,   // type=2, 标准后台事件
-                    2 -> true  // ACTIVITY_PAUSED/MOVE_TO_BACKGROUND
-                    20 -> true  // ACTIVITY_PAUSED (某些设备)
-                    23 -> true  // ACTIVITY_STOPPED
-                    else -> false
-                }
-                
-                when {
-                    isForegroundEvent -> {
-                        // 应用进入前台（只统计前台亮屏使用时间）
+                when (event.eventType) {
+                    UsageEvents.Event.ACTIVITY_RESUMED, 1, 19 -> {
                         resumeCount++
-                        val eventTime = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(event.timeStamp)
-                        
-                        // 特殊标记OffTimes应用和Chrome浏览器
-                        val isOffTimes = event.packageName.contains("offtime") || event.packageName.contains("com.offtime")
-                        val isChromeBrowser = event.packageName.contains("chrome", ignoreCase = true) || event.packageName.contains("browser", ignoreCase = true)
-                        val logPrefix = when {
-                            isOffTimes -> "🔧 OffTimes"
-                            isChromeBrowser -> "🔍 Chrome"
-                            else -> "📱"
+                        val eventTimeStr = java.text.SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(event.timeStamp)
+
+                        // 状态机核心：处理应用切换
+                        if (currentForegroundPackage != null && currentForegroundPackage != eventPackageName) {
+                            val duration = (event.timeStamp - currentSessionStartTime!!) / 1000
+                            Log.d(TAG, "📱 应用切换: ${currentForegroundPackage} -> ${eventPackageName}, 上一个会话时长=${duration}秒")
+                            
+                            // 结束上一个会话
+                            saveSession(currentForegroundPackage!!, currentSessionStartTime!!, event.timeStamp)
                         }
-                        
-                        // 检查是否已经在活跃状态（处理应用切换场景）
-                        val existingStartTime = currentActive[event.packageName]
-                        if (existingStartTime != null) {
-                            // 应用已经在前台，可能是切换回来
-                            val gap = (event.timeStamp - existingStartTime) / 1000
-                            if (gap > 30) {
-                                // 如果间隔超过30秒，先保存之前的会话
-                                Log.d(TAG, "$logPrefix 检测到应用切换回前台，先保存之前的会话")
-                                // 这里使用当前时间作为结束时间可能不准确，但是是最佳估计
-                                val estimatedEndTime = event.timeStamp - 5000 // 估计5秒前离开
-                                appSessionRepository.upsertSessionSmart(
-                                    event.packageName,
-                                    existingStartTime,
-                                    estimatedEndTime
-                                )
-                            }
+
+                        // 开始新的会话
+                        if (currentForegroundPackage != eventPackageName) {
+                            Log.d(TAG, "▶️ 应用启动: ${eventPackageName} at $eventTimeStr")
+                            currentForegroundPackage = eventPackageName
+                            currentSessionStartTime = event.timeStamp
                         }
-                        
-                        Log.d(TAG, "$logPrefix 应用启动 (type=${event.eventType}) → ${event.packageName} at $eventTime")
-                        currentActive[event.packageName] = event.timeStamp
                     }
-                    
-                    isBackgroundEvent -> {
-                        // 应用离开前台（结束统计）
+
+                    UsageEvents.Event.ACTIVITY_PAUSED, 2, 20, 23 -> {
                         pauseCount++
-                        val startTime = currentActive[event.packageName]
-                        val eventTime = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(event.timeStamp)
-                        
-                        if (startTime != null) {
-                            val duration = (event.timeStamp - startTime) / 1000
-                            val startTimeStr = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(startTime)
+                        // 状态机核心：处理应用进入后台
+                        if (currentForegroundPackage == eventPackageName) {
+                            val eventTimeStr = java.text.SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(event.timeStamp)
+                            Log.d(TAG, "⏹️ 应用停止: ${eventPackageName} at $eventTimeStr")
                             
-                            // 特殊标记OffTimes应用
-                            val isOffTimes = event.packageName.contains("offtime") || event.packageName.contains("com.offtime")
-                            val logPrefix = if (isOffTimes) "🔧 OffTimes" else "📱"
+                            saveSession(currentForegroundPackage!!, currentSessionStartTime!!, event.timeStamp)
                             
-                            // 对于OffTimes应用，定期保存会话但不一定结束
-                            if (isOffTimes) {
-                                // 始终保存当前会话状态（用于周期性更新）
-                                if (duration > 0) {
-                                    appSessionRepository.upsertSessionSmart(
-                                        event.packageName,
-                                        startTime,
-                                        event.timeStamp
-                                    )
-                                    Log.d(TAG, "$logPrefix 周期性保存会话: ${duration}秒")
-                                }
-                                
-                                // 对于OffTimes，总是保持活跃状态，除非有其他应用启动
-                                // 这样可以确保连续使用时不会被分割
-                                Log.d(TAG, "$logPrefix OffTimes暂停事件，保持活跃并更新开始时间")
-                                // 更新开始时间为当前时间，以便继续记录后续使用
-                                currentActive[event.packageName] = event.timeStamp
-                            } else {
-                                // 非OffTimes应用，正常处理
-                                Log.d(TAG, "$logPrefix 应用结束 (type=${event.eventType}) → ${event.packageName}, ${startTimeStr}-${eventTime}, 时长=${duration}s")
-                                
-                                // 移除活跃状态
-                                currentActive.remove(event.packageName)
-                                
-                                // 保存会话（即使很短也要记录，让Repository层决定是否过滤）
-                                if (duration > 0) {
-                                    // 只保存前台使用时间（排除后台和黑屏时间）
-                                    appSessionRepository.upsertSessionSmart(
-                                        event.packageName,
-                                        startTime,
-                                        event.timeStamp
-                                    )
-                                }
-                            }
-                        } else {
-                            val isOffTimes = event.packageName.contains("offtime") || event.packageName.contains("com.offtime")
-                            val isChromeBrowser = event.packageName.contains("chrome", ignoreCase = true) || event.packageName.contains("browser", ignoreCase = true)
-                            val logPrefix = when {
-                                isOffTimes -> "🔧 OffTimes"
-                                isChromeBrowser -> "🔍 Chrome"
-                                else -> "📱"
-                            }
-                            Log.w(TAG, "$logPrefix 应用结束但无启动记录 (type=${event.eventType}) → ${event.packageName} at $eventTime")
-                        }
-                    }
-                    
-                    else -> {
-                        // 未知事件类型的处理
-                        val eventTime = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(event.timeStamp)
-                        val isOffTimes = event.packageName.contains("offtime") || event.packageName.contains("com.offtime")
-                        
-                        if (isOffTimes) {
-                            // OffTimes应用的未知事件详细记录
-                            android.util.Log.w(TAG, "🔍 OffTimes未知事件类型: type=${event.eventType}, package=${event.packageName}, time=$eventTime")
-                            android.util.Log.w(TAG, "   已处理类型: 前台事件(1,19,12), 后台事件(2,20,23)")
-                        } else {
-                            // 其他应用的未知事件简单记录
-                            android.util.Log.v(TAG, "其他应用事件: type=${event.eventType}, package=${event.packageName}")
+                            // 重置状态
+                            currentForegroundPackage = null
+                            currentSessionStartTime = null
                         }
                     }
                 }
             }
             
             Log.d(TAG, "事件处理完成: 总计${eventCount}个事件 (启动${resumeCount}个, 结束${pauseCount}个)")
-            if (currentActive.isNotEmpty()) {
-                Log.d(TAG, "当前活跃应用: ${currentActive.keys.joinToString(", ")}")
-            }
-            
-            // Samsung设备额外检查
-            if (isSamsung && eventCount == 0) {
-                Log.w(TAG, "Samsung设备未获取到任何事件，可能需要额外权限设置")
+            if (currentForegroundPackage != null) {
+                Log.d(TAG, "当前活跃应用: ${currentForegroundPackage}")
             }
             
         } catch (e: Exception) {
             Log.e(TAG, "解析 UsageEvents 失败", e)
         }
         return lastEventTs
+    }
+
+    /**
+     * 保存会话到数据库，并应用过滤规则
+     */
+    private suspend fun saveSession(packageName: String, startTime: Long, endTime: Long) {
+        val duration = (endTime - startTime) / 1000
+
+        // 规则 1: 忽略所有时长过短的会话
+        if (duration < 1) {
+            return
+        }
+
+        // 规则 2: 专门过滤OffTimes的后台任务产生的短会话
+        if (packageName.startsWith("com.offtime.app")) {
+            val minDurationForOffTimes = 10 // 单位：秒。时长低于此值的OffTimes会话将被忽略
+            if (duration < minDurationForOffTimes) {
+                Log.d(TAG, "🚫 过滤掉短暂的OffTimes会话 (时长: ${duration}秒)，疑似后台任务。")
+                return // 不保存此记录
+            }
+        }
+
+        // 通过所有过滤规则，保存会话
+        appSessionRepository.upsertSessionSmart(packageName, startTime, endTime)
+    }
+
+    /**
+     * 使用UsageStatsManager获取当前前台应用
+     * 这是一个比ActivityManager.getRunningTasks更可靠的方法
+     */
+    private fun getForegroundApp(): String? {
+        var foregroundApp: String? = null
+        try {
+            val usm = applicationContext.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+            val time = System.currentTimeMillis()
+            // 查询最近1分钟的事件来找到最顶层的应用
+            val appList = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, time - 60 * 1000, time)
+            if (appList != null && appList.isNotEmpty()) {
+                val sortedMap = sortedMapOf<Long, android.app.usage.UsageStats>()
+                for (usageStats in appList) {
+                    sortedMap[usageStats.lastTimeUsed] = usageStats
+                }
+                if (sortedMap.isNotEmpty()) {
+                    foregroundApp = sortedMap[sortedMap.lastKey()]?.packageName
+                    Log.d(TAG, "getForegroundApp: 最近使用的应用是 $foregroundApp")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "获取前台应用失败", e)
+        }
+        return foregroundApp
     }
     
     private fun createNotificationChannel() {
@@ -633,17 +652,17 @@ class UsageStatsCollectorService : Service() {
      */
     private fun flushAllSessions() {
         val now = System.currentTimeMillis()
-        if (currentActive.isEmpty()) {
+        if (currentForegroundPackage == null) {
             Log.d(TAG, "No active sessions to flush")
             return
         }
         
-        Log.d(TAG, "Flushing ${currentActive.size} active sessions (async)")
+        Log.d(TAG, "Flushing active session (async): $currentForegroundPackage")
         
         // 异步执行，用于正常停止时
-        currentActive.forEach { (pkg, start) ->
-            val duration = (now - start) / 1000
-            Log.d(TAG, "Flush session (async) → $pkg, ${duration}s")
+        val pkg = currentForegroundPackage!!
+        val start = currentSessionStartTime!!
+        
             serviceScope.launch {
                 try {
                     appSessionRepository.upsertSessionSmart(pkg, start, now)
@@ -651,8 +670,8 @@ class UsageStatsCollectorService : Service() {
                     Log.e(TAG, "Failed to flush session for $pkg", e)
                 }
             }
-        }
-        currentActive.clear()
+        currentForegroundPackage = null
+        currentSessionStartTime = null
     }
     
     /**
@@ -661,25 +680,83 @@ class UsageStatsCollectorService : Service() {
      */
     private suspend fun flushAllSessionsSync() {
         val now = System.currentTimeMillis()
-        if (currentActive.isEmpty()) {
-            Log.d(TAG, "No active sessions to flush")
-            return
-        }
         
-        Log.d(TAG, "Flushing ${currentActive.size} active sessions (sync)")
-        
-        // 同步执行，用于服务销毁时
-        currentActive.forEach { (pkg, start) ->
-            val duration = (now - start) / 1000
-            Log.d(TAG, "Flush session (sync) → $pkg, ${duration}s")
+        // 处理当前活跃会话
+        if (currentForegroundPackage != null) {
+            Log.d(TAG, "Flushing active session (sync): $currentForegroundPackage")
+            val pkg = currentForegroundPackage!!
+            val start = currentSessionStartTime!!
+            
             try {
                 appSessionRepository.upsertSessionSmart(pkg, start, now)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to flush session for $pkg", e)
             }
+            
+            currentForegroundPackage = null
+            currentSessionStartTime = null
         }
-        currentActive.clear()
+        
+        // 处理暂停的会话
+        if (pausedSessionPackage != null && pausedSessionStartTime != null && pausedSessionPauseTime != null) {
+            Log.d(TAG, "Flushing paused session (sync): $pausedSessionPackage")
+            
+            try {
+                appSessionRepository.upsertSessionSmart(
+                    pausedSessionPackage!!,
+                    pausedSessionStartTime!!,
+                    pausedSessionPauseTime!!
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to flush paused session for $pausedSessionPackage", e)
+            }
+            
+            pausedSessionPackage = null
+            pausedSessionStartTime = null
+            pausedSessionPauseTime = null
+        }
+        
+        if (currentForegroundPackage == null && pausedSessionPackage == null) {
+            Log.d(TAG, "No active or paused sessions to flush")
+        }
     }
     
+    /**
+     * 判断OffTimes事件是否为后台事件
+     * 后台事件的特征：
+     * 1. 在其他应用正在前台运行时发生的RESUMED事件
+     * 2. 短暂的RESUMED后立即PAUSED的事件
+     */
+    private fun isOffTimesBackgroundEvent(event: UsageEvents.Event): Boolean {
+        // 此方法已废弃，新的逻辑直接在processUsageEvents中实现
+        return false
+    }
+    
+    /**
+     * 判断是否为用户应用（非系统应用）
+     */
+    private fun isUserApp(packageName: String): Boolean {
+        return try {
+            val packageInfo = packageManager.getPackageInfo(packageName, 0)
+            val applicationInfo = packageInfo.applicationInfo
+            
+            // 检查是否为用户安装的应用
+            (applicationInfo?.flags?.and(ApplicationInfo.FLAG_SYSTEM) ?: 0) == 0 ||
+            // 或者是系统应用但被用户更新过的（如Chrome等）
+            (applicationInfo?.flags?.and(ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) ?: 0) != 0 ||
+            // 或者是一些常见的用户应用
+            packageName.startsWith("com.google.android.apps.maps") ||
+            packageName.startsWith("com.android.chrome") ||
+            packageName.startsWith("com.google.android.youtube") ||
+            packageName.startsWith("com.whatsapp") ||
+            packageName.startsWith("com.tencent") ||
+            packageName.startsWith("com.alibaba") ||
+            packageName.startsWith("com.taobao") ||
+            packageName.startsWith("com.sina.weibo")
+        } catch (e: Exception) {
+            Log.w(TAG, "检查应用类型失败: $packageName", e)
+            true // 默认认为是用户应用
+        }
+    }
 
 } 

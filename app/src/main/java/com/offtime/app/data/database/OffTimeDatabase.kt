@@ -132,9 +132,8 @@ abstract class OffTimeDatabase : RoomDatabase() {
                                     MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_8, MIGRATION_9_10,
             MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30
                     )
-                    // 临时启用破坏性迁移用于开发调试
-                    .fallbackToDestructiveMigration()
-                    // 注意：生产环境应移除 fallbackToDestructiveMigration() 以保护用户数据
+                    // 生产环境：禁用破坏性迁移以保护用户数据
+                    // 如果遇到无法迁移的情况，应用会崩溃，提醒开发者添加相应的迁移脚本
                     .build()
                 INSTANCE = instance
                 instance

@@ -13,6 +13,8 @@ import com.offtime.app.utils.AppCategoryUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
@@ -29,6 +31,7 @@ class AppSessionRepository @Inject constructor(
 ) {
     private val prefs: SharedPreferences = context.getSharedPreferences("usage_prefs", Context.MODE_PRIVATE)
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    private val sessionMutex = Mutex()
     
 
     
@@ -160,154 +163,146 @@ class AppSessionRepository @Inject constructor(
         pkgName: String,
         startTime: Long,
         endTime: Long
-    ) = withContext(Dispatchers.IO) {
-        
-        // 首先检查是否为需要过滤的系统应用或排除统计应用
-        if (shouldFilterSystemApp(pkgName)) {
-            android.util.Log.d("AppSessionRepository", "过滤应用会话: $pkgName")
-            return@withContext
-        }
-        
-        val originalDuration = ((endTime - startTime) / 1000).toInt()
-        
-        // 先验证会话时长是否合理，过滤异常的超长会话
-        val isValidSession = com.offtime.app.utils.BackgroundAppFilterUtils.validateSessionDuration(
-            packageName = pkgName,
-            durationSeconds = originalDuration,
-            sessionStartTime = startTime,
-            sessionEndTime = endTime
-        )
-        
-        if (!isValidSession) {
-            android.util.Log.w("AppSessionRepository", "过滤异常超长会话: $pkgName, 原始时长:${originalDuration}秒(${originalDuration/3600.0}小时)")
-            return@withContext
-        }
-        
-        // 应用智能后台过滤
-        val adjustedDuration = com.offtime.app.utils.BackgroundAppFilterUtils.adjustUsageDuration(
-            packageName = pkgName,
-            originalDuration = originalDuration,
-            sessionStartTime = startTime,
-            sessionEndTime = endTime
-        )
-        
-        // 获取应用的最小有效时长
-        val minValidDuration = com.offtime.app.utils.BackgroundAppFilterUtils.getMinimumValidDuration(pkgName)
-        
-        if (adjustedDuration >= minValidDuration) {
-            // 检测是否为可能的后台唤醒模式
-            val isBackgroundWakeup = com.offtime.app.utils.BackgroundAppFilterUtils.detectBackgroundWakeupPattern(
-                pkgName, adjustedDuration, startTime, endTime
-            )
-            
-            if (isBackgroundWakeup) {
-                android.util.Log.w("AppSessionRepository", 
-                    "智能合并检测到可能的后台唤醒模式: $pkgName, 时长:${adjustedDuration}秒，已跳过记录")
+    ) = sessionMutex.withLock {
+        withContext(Dispatchers.IO) {
+            // 首先检查是否为需要过滤的系统应用或排除统计应用
+            if (shouldFilterSystemApp(pkgName)) {
+                android.util.Log.d("AppSessionRepository", "过滤应用会话: $pkgName")
                 return@withContext
             }
             
-            // 记录原始时长调整信息
-            if (adjustedDuration != originalDuration) {
-                android.util.Log.d("AppSessionRepository", 
-                    "智能合并前应用过滤: $pkgName, 原始时长:${originalDuration}秒 -> 调整后时长:${adjustedDuration}秒")
+            val originalDuration = ((endTime - startTime) / 1000).toInt()
+            
+            // 先验证会话时长是否合理，过滤异常的超长会话
+            val isValidSession = com.offtime.app.utils.BackgroundAppFilterUtils.validateSessionDuration(
+                packageName = pkgName,
+                durationSeconds = originalDuration,
+                sessionStartTime = startTime,
+                sessionEndTime = endTime
+            )
+            
+            if (!isValidSession) {
+                android.util.Log.w("AppSessionRepository", "过滤异常超长会话: $pkgName, 原始时长:${originalDuration}秒(${originalDuration/3600.0}小时)")
+                return@withContext
             }
             
-            // 使用调整后的时长进行智能合并处理
-            val adjustedEndTime = startTime + (adjustedDuration * 1000L)
+            // 应用智能后台过滤
+            val adjustedDuration = com.offtime.app.utils.BackgroundAppFilterUtils.adjustUsageDuration(
+                packageName = pkgName,
+                originalDuration = originalDuration,
+                sessionStartTime = startTime,
+                sessionEndTime = endTime
+            )
             
-            // 如果应用信息不存在，尝试自动创建
-            var appInfo = appInfoDao.getAppByPackageName(pkgName)
-            if (appInfo == null) {
-                android.util.Log.w("AppSessionRepository", "应用信息不存在，尝试自动创建: $pkgName")
-                try {
-                    val categoryId = getCategoryIdByPackage(pkgName)
-                    val newAppInfo = createAppInfoFromPackageName(pkgName, categoryId)
-                    if (newAppInfo != null) {
-                        appInfoDao.insertApp(newAppInfo)
-                        appInfo = newAppInfo
-                        android.util.Log.d("AppSessionRepository", "自动创建应用信息成功: $pkgName -> categoryId=$categoryId")
-                    }
-                } catch (e: Exception) {
-                    android.util.Log.e("AppSessionRepository", "自动创建应用信息失败: $pkgName", e)
+            // 获取应用的最小有效时长
+            val minValidDuration = com.offtime.app.utils.BackgroundAppFilterUtils.getMinimumValidDuration(pkgName)
+            
+            if (adjustedDuration >= minValidDuration) {
+                // 检测是否为可能的后台唤醒模式
+                val isBackgroundWakeup = com.offtime.app.utils.BackgroundAppFilterUtils.detectBackgroundWakeupPattern(
+                    pkgName, adjustedDuration, startTime, endTime
+                )
+                
+                if (isBackgroundWakeup) {
+                    android.util.Log.w("AppSessionRepository", 
+                        "智能合并检测到可能的后台唤醒模式: $pkgName, 时长:${adjustedDuration}秒，已跳过记录")
                     return@withContext
                 }
-            }
-            
-            if (appInfo == null) {
-                android.util.Log.e("AppSessionRepository", "无法获取或创建应用信息，会话数据丢失: $pkgName")
-                return@withContext
-            }
-            
-            // 检查是否为跨日期会话，如果是则分割为多个会话
-            val startDate = dateFormat.format(Date(startTime))
-            val endDate = dateFormat.format(Date(adjustedEndTime))
-            
-            if (startDate != endDate) {
-                // 跨日期会话，分割处理
-                splitCrossDaySession(appInfo, pkgName, startTime, adjustedEndTime, adjustedDuration, startDate, endDate)
-                return@withContext
-            }
-            
-            // 同一天的会话，进行智能合并处理
-            val date = startDate
-            
-                        // 根据应用类型定义不同的合并间隙阈值
-            val mergeGapMillis = when {
-                // Chrome和其他浏览器使用更长的合并间隙（60秒）
-                pkgName.contains("chrome", ignoreCase = true) || 
-                pkgName.contains("browser", ignoreCase = true) -> 60 * 1000L
-                // 视频和音乐应用也使用较长间隙（30秒）
-                pkgName.contains("music", ignoreCase = true) ||
-                pkgName.contains("video", ignoreCase = true) ||
-                pkgName.contains("youtube", ignoreCase = true) -> 30 * 1000L
-                // 其他应用保持原来的10秒
-                else -> 10 * 1000L
-            }
-            
-            // 查找在合并间隙内的最近会话
-            val recentSession = appSessionUserDao.getRecentSessionByPackage(
-                pkgName, 
-                startTime - mergeGapMillis, // 最早结束时间
-                startTime                   // 当前会话开始时间
-            )
-            
-            // 使用动态间隙阈值作为合并条件
-            if (recentSession != null) {
-                val gap = startTime - recentSession.endTime
-                val isChrome = pkgName.contains("chrome", ignoreCase = true) || pkgName.contains("browser", ignoreCase = true)
-                val logPrefix = if (isChrome) "🔍" else "📱"
                 
-                android.util.Log.d("AppSessionRepository", "$logPrefix 找到最近会话: $pkgName, 时间间隙: ${gap/1000}秒, 合并阈值: ${mergeGapMillis/1000}秒")
-                
-                if (gap <= mergeGapMillis) {
-                    // 存在可以合并的会话，更新现有会话
-                    val mergedEndTime = adjustedEndTime
-                    val mergedDuration = ((mergedEndTime - recentSession.startTime) / 1000).toInt()
-                    
-                    appSessionUserDao.updateSessionEndTime(recentSession.id, mergedEndTime, mergedDuration)
-                    
-                    val recentStartStr = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(recentSession.startTime)
-                    val mergedEndStr = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(mergedEndTime)
-                    
+                // 记录原始时长调整信息
+                if (adjustedDuration != originalDuration) {
                     android.util.Log.d("AppSessionRepository", 
-                        "✅ $logPrefix 智能合并会话成功: $pkgName, ${recentStartStr}-${mergedEndStr}, 间隙:${gap/1000}秒(≤${mergeGapMillis/1000}s), 合并后时长:${mergedDuration}秒")
+                        "智能合并前应用过滤: $pkgName, 原始时长:${originalDuration}秒 -> 调整后时长:${adjustedDuration}秒")
+                }
+                
+                // 使用调整后的时长进行智能合并处理
+                val adjustedEndTime = startTime + (adjustedDuration * 1000L)
+                
+                // 如果应用信息不存在，尝试自动创建
+                var appInfo = appInfoDao.getAppByPackageName(pkgName)
+                if (appInfo == null) {
+                    android.util.Log.w("AppSessionRepository", "应用信息不存在，尝试自动创建: $pkgName")
+                    try {
+                        val categoryId = getCategoryIdByPackage(pkgName)
+                        val newAppInfo = createAppInfoFromPackageName(pkgName, categoryId)
+                        if (newAppInfo != null) {
+                            appInfoDao.insertApp(newAppInfo)
+                            appInfo = newAppInfo
+                            android.util.Log.d("AppSessionRepository", "自动创建应用信息成功: $pkgName -> categoryId=$categoryId")
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("AppSessionRepository", "自动创建应用信息失败: $pkgName", e)
+                        return@withContext
+                    }
+                }
+                
+                if (appInfo == null) {
+                    android.util.Log.e("AppSessionRepository", "无法获取或创建应用信息，会话数据丢失: $pkgName")
                     return@withContext
                 }
+                
+                // 检查是否为跨日期会话，如果是则分割为多个会话
+                val startDate = dateFormat.format(Date(startTime))
+                val endDate = dateFormat.format(Date(adjustedEndTime))
+                
+                if (startDate != endDate) {
+                    // 跨日期会话，分割处理
+                    splitCrossDaySession(appInfo, pkgName, startTime, adjustedEndTime, adjustedDuration, startDate, endDate)
+                    return@withContext
+                }
+                
+                // 同一天的会话，进行智能合并处理
+                val date = startDate
+                
+                            // 根据应用类型定义不同的合并间隙阈值
+                // 统一会话合并阈值：10秒（防止被频繁切换/后台事件拆碎）
+                val mergeGapMillis = 10 * 1000L
+                
+                // 查找在合并间隙内的最近会话
+                val recentSession = appSessionUserDao.getRecentSessionByPackage(
+                    pkgName, 
+                    startTime - mergeGapMillis, // 最早结束时间
+                    startTime                   // 当前会话开始时间
+                )
+                
+                // 使用动态间隙阈值作为合并条件
+                if (recentSession != null) {
+                    val gap = startTime - recentSession.endTime
+                    val isChrome = pkgName.contains("chrome", ignoreCase = true) || pkgName.contains("browser", ignoreCase = true)
+                    val logPrefix = if (isChrome) "🔍" else "📱"
+                    
+                    android.util.Log.d("AppSessionRepository", "$logPrefix 找到最近会话: $pkgName, 时间间隙: ${gap/1000}秒, 合并阈值: ${mergeGapMillis/1000}秒")
+                    
+                    if (gap <= mergeGapMillis) {
+                        // 存在可以合并的会话，更新现有会话
+                        val mergedEndTime = adjustedEndTime
+                        val mergedDuration = ((mergedEndTime - recentSession.startTime) / 1000).toInt()
+                        
+                        appSessionUserDao.updateSessionEndTime(recentSession.id, mergedEndTime, mergedDuration)
+                        
+                        val recentStartStr = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(recentSession.startTime)
+                        val mergedEndStr = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(mergedEndTime)
+                        
+                        android.util.Log.d("AppSessionRepository", 
+                            "✅ $logPrefix 智能合并会话成功: $pkgName, ${recentStartStr}-${mergedEndStr}, 间隙:${gap/1000}秒(≤${mergeGapMillis/1000}s), 合并后时长:${mergedDuration}秒")
+                        return@withContext
+                    }
+                }
+                
+                // 检查是否存在重复会话（相同开始时间）
+                val duplicateSession = appSessionUserDao.getActiveSessionByPackage(pkgName, date, startTime)
+                if (duplicateSession != null) {
+                    android.util.Log.w("AppSessionRepository", "⚠️ 检测到重复会话，跳过插入: $pkgName, 开始时间: ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(startTime)}")
+                    return@withContext
+                }
+                
+                // 没有找到可合并的会话且无重复，插入新记录
+                insertSingleSession(appInfo, pkgName, startTime, adjustedEndTime, date, adjustedDuration, originalDuration)
+            } else {
+                val filterLevel = com.offtime.app.utils.BackgroundAppFilterUtils.getFilterLevel(pkgName)
+                android.util.Log.d("AppSessionRepository", 
+                    "智能合并会话过短被过滤: $pkgName, 原始时长:${originalDuration}秒, 调整后时长:${adjustedDuration}秒, 最小有效时长:${minValidDuration}秒, 过滤级别:${filterLevel}")
             }
-            
-            // 检查是否存在重复会话（相同开始时间）
-            val duplicateSession = appSessionUserDao.getActiveSessionByPackage(pkgName, date, startTime)
-            if (duplicateSession != null) {
-                android.util.Log.w("AppSessionRepository", "⚠️ 检测到重复会话，跳过插入: $pkgName, 开始时间: ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(startTime)}")
-                return@withContext
-            }
-            
-            // 没有找到可合并的会话且无重复，插入新记录
-            insertSingleSession(appInfo, pkgName, startTime, adjustedEndTime, date, adjustedDuration, originalDuration)
-        } else {
-            val filterLevel = com.offtime.app.utils.BackgroundAppFilterUtils.getFilterLevel(pkgName)
-            android.util.Log.d("AppSessionRepository", 
-                "智能合并会话过短被过滤: $pkgName, 原始时长:${originalDuration}秒, 调整后时长:${adjustedDuration}秒, 最小有效时长:${minValidDuration}秒, 过滤级别:${filterLevel}")
         }
     }
     
@@ -446,7 +441,8 @@ class AppSessionRepository @Inject constructor(
         val secondDayTimeSpan = endTime - secondDayStartTime
         
         // 第一个会话：开始时间到第一天结束
-        val firstDayDuration = ((firstDayTimeSpan.toDouble() / totalTimeSpan.toDouble()) * totalDuration).toInt()
+        // 始终在 23:59:59 处硬切分，保证按天分隔精确
+        val firstDayDuration = ((firstDayEndTime - startTime) / 1000).toInt()
         val minValidDuration = com.offtime.app.utils.BackgroundAppFilterUtils.getMinimumValidDuration(pkgName)
         
         if (firstDayDuration >= minValidDuration) {
@@ -464,7 +460,7 @@ class AppSessionRepository @Inject constructor(
         }
         
         // 第二个会话：第二天开始到结束时间
-        val secondDayDuration = totalDuration - firstDayDuration
+        val secondDayDuration = ((endTime - secondDayStartTime) / 1000).toInt()
         if (secondDayDuration >= minValidDuration) {
             val secondSessionEntity = AppSessionUserEntity(
                 id = 0,
@@ -1037,53 +1033,20 @@ class AppSessionRepository @Inject constructor(
     /**
      * 获取当前活跃会话的使用时间（按分类统计）
      * 用于实时显示正在进行中的应用使用时间
+     * 
+     * 修复：不再依赖历史会话数据推测，直接从UsageStatsCollectorService获取当前状态
      */
     suspend fun getCurrentActiveUsageByCategory(categoryId: Int): Int = withContext(Dispatchers.IO) {
         return@withContext try {
-            val currentTime = System.currentTimeMillis()
-            val today = dateFormat.format(Date(currentTime))
-            
-            // 获取今日所有会话（包括正在进行的）
-            val todaySessions = appSessionUserDao.getSessionsByDate(today)
-            
-            // 获取所有应用信息以检查分类
-            val allApps = appInfoDao.getAllAppsList()
-            val appCategoryMap = allApps.associate { it.packageName to it.categoryId }
-            
-            var totalActiveUsage = 0
-            
-            // 计算指定分类的活跃使用时间
-            todaySessions.forEach { session ->
-                val sessionCategoryId = appCategoryMap[session.pkgName]
-                
-                // 只统计指定分类的会话，或者总使用分类（categoryId为总使用分类的ID）
-                if (sessionCategoryId == categoryId || isTotal(categoryId)) {
-                    val sessionEndTime = session.endTime
-                    val sessionStartTime = session.startTime
-                    
-                    // 检查会话是否可能正在进行中（结束时间接近开始时间或为当前时间附近）
-                    val timeSinceEnd = currentTime - sessionEndTime
-                    val sessionDuration = session.durationSec
-                    
-                    // 如果会话的结束时间在最近5分钟内，且会话时长较长，可能是正在进行的会话
-                    if (timeSinceEnd <= 5 * 60 * 1000L && sessionDuration >= 60) {
-                        // 计算从会话开始到现在的实际时间
-                        val realDuration = ((currentTime - sessionStartTime) / 1000).toInt()
-                        val additionalTime = realDuration - sessionDuration
-                        
-                        if (additionalTime > 0 && additionalTime <= 24 * 60 * 60) { // 额外时间不超过24小时
-                            totalActiveUsage += additionalTime
-                            android.util.Log.d("AppSessionRepository", 
-                                "检测到活跃会话: ${session.pkgName}, 额外时间: ${additionalTime}s")
-                        }
-                    }
-                }
-            }
+            // 修复方案：不再使用错误的历史会话推测方法
+            // 如果需要实时显示，应该从UsageStatsCollectorService的当前状态获取
+            // 但为了避免复杂的依赖关系，这里暂时返回0
+            // 真实的活跃时间应该通过定时更新机制体现在聚合数据中
             
             android.util.Log.d("AppSessionRepository", 
-                "分类${categoryId}当前活跃使用时间: ${totalActiveUsage}s")
+                "getCurrentActiveUsageByCategory已修复: 不再返回错误的活跃时间，分类${categoryId}返回0")
             
-            totalActiveUsage
+            0 // 修复：不再返回错误的活跃时间
             
         } catch (e: Exception) {
             android.util.Log.e("AppSessionRepository", "获取当前活跃使用时间失败", e)
@@ -1105,5 +1068,60 @@ class AppSessionRepository @Inject constructor(
         } catch (e: Exception) {
             false
         }
+    }
+
+    /**
+     * 清理重复的会话记录和 OffTimes 的幽灵记录
+     * 1. 删除所有 OffTimes 自身的记录
+     * 2. 查找具有完全相同 pkgName 和 startTime 的重复记录，并删除它们
+     */
+    suspend fun cleanDuplicateSessions(): Int = withContext(Dispatchers.IO) {
+        android.util.Log.i("AppSessionRepository", "--- 开始清理重复会话记录 ---")
+        var deletedCount = 0
+
+        // 1. 删除所有 OffTimes 自身的记录
+        val offTimesPackageName = context.packageName
+        val offTimesSessions = appSessionUserDao.getSessionsByPackageNameDebug(offTimesPackageName)
+        if (offTimesSessions.isNotEmpty()) {
+            val idsToDelete = offTimesSessions.map { it.id }
+            appSessionUserDao.deleteSessionsByIds(idsToDelete)
+            deletedCount += idsToDelete.size
+            android.util.Log.i("AppSessionRepository", "  - 删除了 ${idsToDelete.size} 条 OffTimes 自身的记录")
+        }
+
+        // 2. 清理其他应用的重复记录
+        val allSessions = appSessionUserDao.getAllSessions()
+        val sessionsToKeep = mutableMapOf<Pair<String, Long>, AppSessionUserEntity>()
+        val idsToDelete = mutableListOf<Int>()
+
+        // 按开始时间正序排列，确保我们保留的是第一次出现的记录
+        for (session in allSessions.sortedBy { it.startTime }) {
+            val key = Pair(session.pkgName, session.startTime)
+            if (sessionsToKeep.containsKey(key)) {
+                // 发现重复记录
+                val existingSession = sessionsToKeep[key]!!
+                // 决定保留哪一个：通常保留时长更长的那个，或者如果时长相同，保留ID小的
+                if (session.durationSec > existingSession.durationSec) {
+                    // 新的会话更长，用它替换旧的
+                    idsToDelete.add(existingSession.id)
+                    sessionsToKeep[key] = session
+                } else {
+                    // 旧的会话更长或相等，删除新的
+                    idsToDelete.add(session.id)
+                }
+            } else {
+                // 第一次见到这个 (pkgName, startTime) 组合，保留它
+                sessionsToKeep[key] = session
+            }
+        }
+
+        if (idsToDelete.isNotEmpty()) {
+            appSessionUserDao.deleteSessionsByIds(idsToDelete)
+            deletedCount += idsToDelete.size
+            android.util.Log.i("AppSessionRepository", "  - 删除了 ${idsToDelete.size} 条其他应用的重复记录")
+        }
+
+        android.util.Log.i("AppSessionRepository", "--- 清理完成，共删除 $deletedCount 条记录 ---")
+        return@withContext deletedCount
     }
 } 

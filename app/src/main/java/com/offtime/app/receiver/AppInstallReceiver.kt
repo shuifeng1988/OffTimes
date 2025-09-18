@@ -4,19 +4,29 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.offtime.app.data.repository.AppRepository
-import dagger.hilt.android.AndroidEntryPoint
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@AndroidEntryPoint
 class AppInstallReceiver : BroadcastReceiver() {
-    
-    @Inject
-    lateinit var appRepository: AppRepository
-    
+
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface AppInstallReceiverEntryPoint {
+        fun appRepository(): AppRepository
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
+        val hiltEntryPoint = EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            AppInstallReceiverEntryPoint::class.java
+        )
+        val appRepository = hiltEntryPoint.appRepository()
+
         val packageName = intent.data?.schemeSpecificPart ?: return
         
         when (intent.action) {

@@ -26,6 +26,7 @@ object BackgroundAppFilterUtils {
         // 即时通讯应用
         "com.tencent.mm",                    // 微信
         "com.tencent.mobileqq",              // QQ
+        "com.tencent.tim",                   // TIM
         "com.alibaba.android.rimet",         // 钉钉
         "com.ss.android.lark",               // 飞书
         "com.tencent.wework",                // 企业微信
@@ -108,6 +109,7 @@ object BackgroundAppFilterUtils {
         "com.tencent.mm",                    // 微信
         "com.eg.android.AlipayGphone",       // 支付宝
         "com.tencent.mobileqq",              // QQ
+        "com.tencent.tim",                   // TIM
         "com.miui.securitycenter",           // MIUI安全中心
         "com.google.android.gms",            // Google Play Services
         

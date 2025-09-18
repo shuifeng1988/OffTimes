@@ -18,4 +18,10 @@
 
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
-#-renamesourcefileattribute SourceFile 
+#-renamesourcefileattribute SourceFile
+
+# Hilt: Keep AppInstallReceiver to prevent conflicts with bytecode instrumentation
+-keep class com.offtime.app.receiver.AppInstallReceiver { *; }
+
+# Hilt: Keep ScreenStateReceiver to prevent conflicts with bytecode instrumentation
+-keep class com.offtime.app.receiver.ScreenStateReceiver { *; } 

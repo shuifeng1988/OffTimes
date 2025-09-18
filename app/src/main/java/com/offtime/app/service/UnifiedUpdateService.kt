@@ -18,6 +18,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.offtime.app.data.repository.AppSessionRepository
 import com.offtime.app.manager.DataUpdateManager
+import com.offtime.app.utils.DataCleanupManager
 import java.util.Date
 import javax.inject.Inject
 
@@ -132,6 +133,9 @@ class UnifiedUpdateService : Service() {
     
     @Inject
     lateinit var dataUpdateManager: DataUpdateManager
+    
+    @Inject
+    lateinit var dataCleanupManager: DataCleanupManager
     
     // 服务协程作用域
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -277,8 +281,12 @@ class UnifiedUpdateService : Service() {
             Log.d(TAG, "第三阶段：聚合数据更新")
             updateAggregatedDataTables()
             
-            // === 第四阶段：UI刷新通知 ===
-            Log.d(TAG, "第四阶段：UI刷新通知")
+            // === 第四阶段：数据清理检查 ===
+            Log.d(TAG, "第四阶段：数据清理检查")
+            performDataCleanupIfNeeded()
+            
+            // === 第五阶段：UI刷新通知 ===
+            Log.d(TAG, "第五阶段：UI刷新通知")
             notifyUIDataUpdated(updateType)
             
             val duration = System.currentTimeMillis() - startTime
@@ -398,8 +406,8 @@ class UnifiedUpdateService : Service() {
             if (shouldHandleCrossDay) {
                 Log.d(TAG, "发现跨日期活跃会话，开始处理")
                 
-                // 1. 强制保存当前活跃会话到当前时间
-                forceFlushActiveSessions()
+                // 1. 强制保存当前活跃会话到当前时间 - 这是导致问题的根源，予以注释
+                // forceFlushActiveSessions()
                 
                 // 2. 通过拉取事件的方式触发会话保存
                 // 这会让UsageStatsCollectorService检查并保存当前活跃的会话
@@ -426,17 +434,17 @@ class UnifiedUpdateService : Service() {
      */
     private suspend fun forceFlushActiveSessions() {
         try {
-            Log.d(TAG, "强制保存当前活跃会话")
+            Log.d(TAG, "强制保存当前活跃会话 - 此功能已因中断问题停用")
             
             // 触发UsageStatsCollectorService强制刷新所有活跃会话
-            val intent = Intent(this, UsageStatsCollectorService::class.java)
-            intent.action = "FORCE_FLUSH_ACTIVE_SESSIONS"
-            startService(intent)
+            // val intent = Intent(this, UsageStatsCollectorService::class.java)
+            // intent.action = "FORCE_FLUSH_ACTIVE_SESSIONS"
+            // startService(intent)
             
             // 等待强制刷新完成
-            delay(1500)
+            // delay(1500)
             
-            Log.d(TAG, "强制保存活跃会话完成")
+            // Log.d(TAG, "强制保存活跃会话完成")
             
         } catch (e: Exception) {
             Log.e(TAG, "强制保存活跃会话失败", e)
@@ -546,5 +554,24 @@ class UnifiedUpdateService : Service() {
             .setSilent(true) // 静默通知
             .setShowWhen(false)
             .build()
+    }
+    
+    /**
+     * 执行数据清理检查
+     * 如果需要清理，则执行数据清理任务
+     */
+    private suspend fun performDataCleanupIfNeeded() {
+        try {
+            if (dataCleanupManager.shouldPerformCleanup()) {
+                Log.d(TAG, "开始执行数据清理...")
+                dataCleanupManager.performDataCleanup()
+                dataCleanupManager.markCleanupCompleted()
+                Log.d(TAG, "数据清理完成")
+            } else {
+                Log.d(TAG, "暂不需要执行数据清理")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "数据清理检查失败", e)
+        }
     }
 }

@@ -12,6 +12,7 @@ import kotlinx.coroutines.delay
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.offtime.app.manager.DataUpdateManager
+import com.offtime.app.manager.SubscriptionManager
 import com.offtime.app.data.dao.AppCategoryDao
 import com.offtime.app.data.dao.AppSessionUserDao
 import com.offtime.app.data.dao.TimerSessionUserDao
@@ -159,7 +160,8 @@ class HomeViewModel @Inject constructor(
     @ApplicationContext private val context: Context,            // 应用上下文
     private val repository: GoalRewardPunishmentRepository,      // 目标奖罚仓库
     private val timerSessionRepository: TimerSessionRepository,  // 计时器会话仓库
-    private val userRepository: UserRepository                   // 用户仓库
+    private val userRepository: UserRepository,                  // 用户仓库
+    private val subscriptionManager: com.offtime.app.manager.SubscriptionManager // 订阅管理器
 ) : ViewModel() {
 
 
@@ -192,6 +194,16 @@ class HomeViewModel @Inject constructor(
     
     private val _goalConditionType = MutableStateFlow(0) // 0: ≤目标算完成(娱乐类), 1: ≥目标算完成(学习类)
     val goalConditionType: StateFlow<Int> = _goalConditionType.asStateFlow()
+    
+    // 昨日使用数据
+    private val _yesterdayRealUsageSec = MutableStateFlow(0)
+    val yesterdayRealUsageSec: StateFlow<Int> = _yesterdayRealUsageSec.asStateFlow()
+    
+    private val _yesterdayVirtualUsageSec = MutableStateFlow(0)
+    val yesterdayVirtualUsageSec: StateFlow<Int> = _yesterdayVirtualUsageSec.asStateFlow()
+    
+    private val _yesterdayGoalSec = MutableStateFlow(0)
+    val yesterdayGoalSec: StateFlow<Int> = _yesterdayGoalSec.asStateFlow()
     
     private val _yesterdayRewardDone = MutableStateFlow(true)
     val yesterdayRewardDone: StateFlow<Boolean> = _yesterdayRewardDone.asStateFlow()
@@ -516,6 +528,26 @@ class HomeViewModel @Inject constructor(
                     loadCategoryGoal(category.id)
                     loadRewardPunishmentSummary()
                 }
+            }
+        }
+    }
+    
+    /**
+     * 观看广告延长使用期限
+     */
+    fun watchAdForExtension() {
+        viewModelScope.launch {
+            try {
+                val success = subscriptionManager.watchAdForExtension()
+                if (success) {
+                    android.util.Log.d("HomeViewModel", "观看广告成功，延长使用期限")
+                    // 刷新订阅信息
+                    loadSubscriptionInfo()
+                } else {
+                    android.util.Log.w("HomeViewModel", "观看广告失败，可能已达每日上限")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "观看广告处理失败", e)
             }
         }
     }
@@ -1282,6 +1314,21 @@ class HomeViewModel @Inject constructor(
         try {
             android.util.Log.d("HomeViewModel", "查询昨日奖罚状态: categoryId=$categoryId, date=$date")
             
+            // 加载昨日使用数据
+            val yesterdayRealUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 0) ?: 0
+            val yesterdayVirtualUsage = dailyUsageDao.getTotalUsageByCategoryAndType(categoryId, date, 1) ?: 0
+            
+            // 获取目标数据
+            val goal = goalRewardPunishmentUserDao.getUserGoalByCatId(categoryId)
+            val goalSeconds = goal?.dailyGoalMin?.times(60) ?: 0
+            
+            // 更新昨日使用数据状态
+            _yesterdayRealUsageSec.value = yesterdayRealUsage
+            _yesterdayVirtualUsageSec.value = yesterdayVirtualUsage
+            _yesterdayGoalSec.value = goalSeconds
+            
+            android.util.Log.d("HomeViewModel", "昨日使用数据: real=${yesterdayRealUsage}s, virtual=${yesterdayVirtualUsage}s, goal=${goalSeconds}s")
+            
             // 检查是否为首次安装（通过应用安装时间判断）
             val isRecentlyInstalled = isAppInstalledToday()
             if (isRecentlyInstalled) {
@@ -1848,7 +1895,9 @@ class HomeViewModel @Inject constructor(
                 val goalSeconds = goal?.dailyGoalMin?.times(60) ?: 0
                 
                 android.util.Log.d("HomeViewModel", "=== 昨日详细数据调试 ===")
+                android.util.Log.d("HomeViewModel", "查询日期: $yesterday")
                 android.util.Log.d("HomeViewModel", "categoryId=$categoryId, categoryName=$categoryName")
+                android.util.Log.d("HomeViewModel", "realUsageSeconds=$realUsageSeconds, virtualUsageSeconds=$virtualUsageSeconds")
                 android.util.Log.d("HomeViewModel", "goal=$goal")
                 android.util.Log.d("HomeViewModel", "goalSeconds=$goalSeconds (${goalSeconds/3600.0}h)")
                 if (goal != null) {
@@ -5383,12 +5432,26 @@ class HomeViewModel @Inject constructor(
     /**
      * 获取用户订阅信息
      */
-    suspend fun getSubscriptionInfo(): UserRepository.SubscriptionInfo? {
+    suspend fun getSubscriptionInfo(): SubscriptionManager.SubscriptionInfo? {
         return try {
-            userRepository.getUserSubscriptionInfo()
+            subscriptionManager.getSubscriptionInfo()
         } catch (e: Exception) {
             android.util.Log.e("HomeViewModel", "获取订阅信息失败", e)
             null
+        }
+    }
+    
+    /**
+     * 加载订阅信息
+     */
+    fun loadSubscriptionInfo() {
+        viewModelScope.launch {
+            try {
+                val info = userRepository.getUserSubscriptionInfo()
+                android.util.Log.d("HomeViewModel", "订阅信息已刷新")
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "加载订阅信息失败", e)
+            }
         }
     }
 
