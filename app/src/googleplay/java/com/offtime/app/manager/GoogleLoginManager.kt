@@ -171,9 +171,9 @@ class GoogleLoginManager @Inject constructor(
     
     override suspend fun logout(): Boolean {
         return try {
-            signOut()
-            true
+            signOutAndClearClient()
         } catch (e: Exception) {
+            Log.e(TAG, "退出登录时发生异常", e)
             false
         }
     }
@@ -194,16 +194,24 @@ class GoogleLoginManager @Inject constructor(
     }
     
     /**
-     * 退出Google登录
+     * 退出Google登录，并彻底清除客户端实例
      */
-    suspend fun signOut(): Boolean = suspendCancellableCoroutine { continuation ->
+    suspend fun signOutAndClearClient(): Boolean = suspendCancellableCoroutine { continuation ->
         val client = initializeGoogleSignInClient()
-        client.signOut()
-            .addOnCompleteListener { task ->
-                val success = task.isSuccessful
-                Log.d(TAG, "Google登录退出${if (success) "成功" else "失败"}")
-                continuation.resume(success)
+        client.signOut().addOnCompleteListener { signOutTask ->
+            if (signOutTask.isSuccessful) {
+                client.revokeAccess().addOnCompleteListener { revokeTask ->
+                    val success = revokeTask.isSuccessful
+                    Log.d(TAG, "Google账号访问权限撤销${if (success) "成功" else "失败"}")
+                    googleSignInClient = null // 彻底清除实例
+                    Log.d(TAG, "GoogleSignInClient实例已置空")
+                    continuation.resume(success)
+                }
+            } else {
+                Log.w(TAG, "Google signOut失败，跳过revokeAccess")
+                continuation.resume(false)
             }
+        }
     }
     
     /**

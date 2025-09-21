@@ -630,23 +630,15 @@ class UserRepository @Inject constructor(
             val currentUser = getCurrentUser()
             if (currentUser?.googleId?.isNotEmpty() == true && googleLoginManager != null) {
                 try {
-                    Log.d("UserRepository", "🔄 撤销Google账号访问权限，强制重新选择账号")
-                    // 使用revokeAccess()方法完全撤销访问权限，这样下次登录会强制显示账号选择器
-                    if (googleLoginManager is com.offtime.app.manager.GoogleLoginManager) {
-                        val method = googleLoginManager::class.java.getMethod("revokeAccess")
-                        val success = method.invoke(googleLoginManager) as Boolean
-                        if (success) {
-                            Log.d("UserRepository", "✅ Google账号访问权限撤销成功")
-                        } else {
-                            Log.w("UserRepository", "⚠️ Google账号访问权限撤销失败，尝试普通退出")
-                            googleLoginManager.logout()
-                        }
+                    Log.d("UserRepository", "🔄 开始执行Google账号退出流程")
+                    val logoutSuccess = googleLoginManager.logout()
+                    if (logoutSuccess) {
+                        Log.d("UserRepository", "✅ Google账号退出成功")
                     } else {
-                        // 如果不是GoogleLoginManager实例，使用普通退出
-                        googleLoginManager.logout()
+                        Log.w("UserRepository", "⚠️ Google账号退出失败")
                     }
                 } catch (e: Exception) {
-                    Log.w("UserRepository", "⚠️ 清除Google账号缓存失败，但继续执行本地清理", e)
+                    Log.e("UserRepository", "❌ 执行Google账号退出时发生异常", e)
                 }
             }
             
@@ -661,12 +653,7 @@ class UserRepository @Inject constructor(
                 // 尝试清除Google账号缓存
                 val currentUser = getCurrentUser()
                 if (currentUser?.googleId?.isNotEmpty() == true && googleLoginManager != null) {
-                    if (googleLoginManager is com.offtime.app.manager.GoogleLoginManager) {
-                        val method = googleLoginManager::class.java.getMethod("revokeAccess")
-                        method.invoke(googleLoginManager)
-                    } else {
-                        googleLoginManager.logout()
-                    }
+                    googleLoginManager.logout()
                 }
             } catch (googleException: Exception) {
                 Log.w("UserRepository", "清除Google账号缓存失败", googleException)

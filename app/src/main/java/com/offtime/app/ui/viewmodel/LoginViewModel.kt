@@ -551,6 +551,10 @@ class LoginViewModel @Inject constructor(
                     )
                     return@launch
                 }
+
+                // 强制退出，确保清除任何残留状态
+                Log.d("LoginViewModel", "🔄 登录前强制执行退出操作")
+                googleLoginManager.logout()
                 
                 // 启动真实的Google登录流程
                 try {
