@@ -1,6 +1,7 @@
 package com.offtime.app.manager.interfaces
 
 import kotlinx.coroutines.flow.Flow
+import android.app.Activity
 
 /**
  * 支付管理器接口
@@ -9,15 +10,15 @@ import kotlinx.coroutines.flow.Flow
 interface PaymentManager {
     
     /**
-     * 执行支付操作
-     * @param productId 产品ID
-     * @param amount 支付金额
+     * 启动支付流程
+     * @param activity 用于启动支付UI的Activity
+     * @param productId 要购买的商品ID
      * @return 支付结果的Flow
      */
-    suspend fun pay(productId: String, amount: String): Flow<PaymentResult>
+    fun pay(activity: Activity, productId: String): Flow<PaymentResult>
     
     /**
-     * 查询支付状态
+     * 查询订单状态
      * @param orderId 订单ID
      */
     suspend fun queryPaymentStatus(orderId: String): PaymentResult

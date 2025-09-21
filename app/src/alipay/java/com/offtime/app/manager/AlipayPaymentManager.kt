@@ -25,6 +25,7 @@ import java.security.spec.PKCS8EncodedKeySpec
 import android.util.Base64
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.alipay.sdk.app.PayResult
 
 /**
  * 支付宝支付管理类
@@ -39,6 +40,8 @@ import javax.inject.Singleton
 class AlipayPaymentManager @Inject constructor(
     private val context: Context
 ) : PaymentManager {
+    
+    private var paymentCallback: ((PaymentResult) -> Unit)? = null
     
     companion object {
         private const val TAG = "AlipayPaymentManager"
@@ -70,38 +73,40 @@ class AlipayPaymentManager @Inject constructor(
         Log.d(TAG, "AlipayPaymentManager initialized, sandbox: $isSandbox")
     }
     
-    override suspend fun pay(productId: String, amount: String): Flow<PaymentResult> = flow {
+    override fun pay(activity: Activity, productId: String): Flow<PaymentResult> = flow {
+        // 在支付宝支付中，productId可能对应服务器上的不同商品，amount是动态的
+        // 这里为了简化，我们假设productId映射到固定的价格
+        val amount = when (productId) {
+            "premium_lifetime" -> "9.90"
+            else -> "0.01" // 默认测试金额
+        }
+
         emit(PaymentResult.Loading)
-        
         try {
-            // 构建订单信息
-            val orderInfo = buildOrderInfo(productId, amount)
-            Log.d(TAG, "Generated order info: $orderInfo")
+            val orderInfo = getOrderInfo(
+                subject = "OffTimes Premium",
+                body = "Lifetime Access",
+                price = amount
+            )
             
-            // 对订单信息进行签名
-            val signedOrderInfo = signOrderInfo(orderInfo)
-            Log.d(TAG, "Signed order info: $signedOrderInfo")
+            val payTask = PayTask(activity)
+            val result = payTask.payV2(orderInfo, true)
             
-            // 在子线程中调用支付宝支付
-            val result = withContext(Dispatchers.IO) {
-                val payTask = PayTask(context as Activity)
-                payTask.payV2(signedOrderInfo, true)
+            val payResult = PayResult(result)
+            
+            when (payResult.resultStatus) {
+                "9000" -> emit(PaymentResult.Success(payResult.result))
+                "8000" -> emit(PaymentResult.Error("支付结果确认中"))
+                "6001" -> emit(PaymentResult.Cancelled)
+                else -> emit(PaymentResult.Error("支付失败: ${payResult.memo}"))
             }
-            
-            Log.d(TAG, "Payment result: $result")
-            
-            // 解析支付结果
-            val paymentResult = parsePaymentResult(result)
-            emit(paymentResult)
-            
         } catch (e: Exception) {
-            Log.e(TAG, "Payment failed", e)
-            emit(PaymentResult.Error("支付失败: ${e.message}", e))
+            emit(PaymentResult.Error("支付异常: ${e.message}", e))
         }
     }
     
     override suspend fun queryPaymentStatus(orderId: String): PaymentResult {
-        // 这里可以实现支付状态查询逻辑
+        // 支付宝的订单查询需要服务器端配合
         return PaymentResult.Error("支付状态查询暂未实现")
     }
     

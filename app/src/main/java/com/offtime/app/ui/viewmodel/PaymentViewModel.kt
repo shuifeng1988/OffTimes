@@ -90,193 +90,39 @@ class PaymentViewModel @Inject constructor(
             )
             
             try {
-                when (_uiState.value.selectedPaymentMethod) {
-                    PaymentMethod.ALIPAY -> {
-                        processAlipayPayment(activity)
-                    }
-                    PaymentMethod.WECHAT -> {
-                        // 可以在这里添加微信支付
-                        simulatePayment()
-                    }
-                    PaymentMethod.GOOGLE_PLAY -> {
-                        processGooglePlayPayment(activity)
-                    }
-                    PaymentMethod.OTHER -> {
-                        // 其他支付方式
-                        simulatePayment()
+                val paymentManager = when (_uiState.value.selectedPaymentMethod) {
+                    PaymentMethod.ALIPAY -> alipayPaymentManager
+                    PaymentMethod.GOOGLE_PLAY -> googlePaymentManager
+                    else -> null
+                }
+
+                if (paymentManager == null) {
+                    _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = "Payment method not available")
+                    return@launch
+                }
+
+                paymentManager.pay(activity, "premium_lifetime").collect { result ->
+                    when (result) {
+                        is PaymentResult.Loading -> _uiState.value = _uiState.value.copy(isLoading = true)
+                        is PaymentResult.Success -> {
+                            userRepository.upgradeToPremium().fold(
+                                onSuccess = {
+                                    _uiState.value = _uiState.value.copy(isLoading = false, isPaymentSuccess = true)
+                                    loadSubscriptionInfo()
+                                },
+                                onFailure = {
+                                    _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = "Upgrade failed: ${it.message}")
+                                }
+                            )
+                        }
+                        is PaymentResult.Error -> _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = result.message)
+                        is PaymentResult.Cancelled -> _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = "Payment cancelled")
                     }
                 }
-                
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     errorMessage = "Payment failed: ${e.message}"
-                )
-            }
-        }
-    }
-    
-    /**
-     * 处理支付宝支付
-     */
-    private suspend fun processAlipayPayment(@Suppress("UNUSED_PARAMETER") activity: Activity) {
-        try {
-            // 调试模式：模拟支付成功
-            if (com.offtime.app.BuildConfig.DEBUG) {
-                android.util.Log.d("PaymentViewModel", "🚀 Debug mode - Simulating Alipay payment success")
-                
-                // 模拟网络延迟
-                kotlinx.coroutines.delay(2000)
-                
-                // 直接升级为付费用户
-                val upgradeResult = userRepository.upgradeToPremium()
-                
-                upgradeResult.fold(
-                    onSuccess = {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            isPaymentSuccess = true
-                        )
-                        
-                        // 重新加载订阅信息
-                        loadSubscriptionInfo()
-                    },
-                    onFailure = { error ->
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            errorMessage = "Upgrade failed: ${error.message}"
-                        )
-                    }
-                )
-                return
-            }
-            
-            // 生成订单号
-            @Suppress("UNUSED_VARIABLE")
-            val orderNo = generateOrderNumber()
-            
-            // 支付金额 (会员价格)
-            val amount = PREMIUM_PRICE
-            
-            // 商品信息
-            @Suppress("UNUSED_VARIABLE")
-            val subject = "OffTimes 会员订阅"
-            @Suppress("UNUSED_VARIABLE")
-            val body = "升级为付费会员，解锁全部功能"
-            
-            // 发起支付宝支付
-            val paymentManager = alipayPaymentManager
-            if (paymentManager == null) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = "Alipay payment unavailable"
-                )
-                return@processAlipayPayment
-            }
-            
-            // 发起支付宝支付
-            paymentManager.pay("premium_monthly", amount).collect { result ->
-                when (result) {
-                    is PaymentResult.Loading -> {
-                        _uiState.value = _uiState.value.copy(isLoading = true)
-                    }
-                    is PaymentResult.Success -> {
-                // 支付成功，升级为付费用户
-                val upgradeResult = userRepository.upgradeToPremium()
-                
-                upgradeResult.fold(
-                    onSuccess = {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            isPaymentSuccess = true
-                        )
-                        
-                        // 重新加载订阅信息
-                        loadSubscriptionInfo()
-                    },
-                    onFailure = { error ->
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            errorMessage = "Upgrade failed: ${error.message}"
-                        )
-                    }
-                )
-                    }
-                    is PaymentResult.Error -> {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            errorMessage = result.message
-                        )
-                    }
-                    is PaymentResult.Cancelled -> {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            errorMessage = "Payment cancelled"
-                        )
-                    }
-                }
-            }
-            
-        } catch (e: Exception) {
-            _uiState.value = _uiState.value.copy(
-                isLoading = false,
-                errorMessage = "Alipay payment failed: ${e.message}"
-            )
-        }
-    }
-    
-    /**
-     * 处理Google Play支付
-     */
-    private fun processGooglePlayPayment(activity: Activity) {
-        viewModelScope.launch {
-            try {
-                // 实际的Google Play Billing逻辑
-                val paymentManager = googlePaymentManager
-                if (paymentManager == null || paymentManager !is com.offtime.app.manager.GooglePlayBillingManager) {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        errorMessage = "Google Play payment unavailable"
-                    )
-                    return@launch
-                }
-                
-                // 1. 查询商品详情
-                _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
-                val products = paymentManager.querySubscriptionProducts()
-                val lifetimeProduct = products.find { it.productId == com.offtime.app.manager.GooglePlayBillingManager.PREMIUM_LIFETIME_SKU }
-                
-                if (lifetimeProduct == null) {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        errorMessage = "Premium product not found"
-                    )
-                    return@launch
-                }
-                
-                // 2. 启动购买流程
-                val purchaseSuccess = paymentManager.launchBillingFlow(activity, lifetimeProduct)
-                
-                if (purchaseSuccess) {
-                    // 购买成功后，GooglePlayBillingManager会通过onPurchasesUpdated处理，
-                    // 并在确认后调用userRepository.upgradeToPremium()
-                    // 这里我们只需要更新UI状态
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        isPaymentSuccess = true
-                    )
-                    loadSubscriptionInfo()
-                } else {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        errorMessage = "Failed to launch billing flow"
-                    )
-                }
-                
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = "Google Play payment failed: ${e.message}"
                 )
             }
         }
