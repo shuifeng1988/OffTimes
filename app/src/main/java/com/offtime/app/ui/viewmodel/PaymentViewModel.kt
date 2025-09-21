@@ -16,12 +16,12 @@ import com.offtime.app.manager.interfaces.PaymentManager
 import com.offtime.app.manager.interfaces.PaymentResult
 import kotlinx.coroutines.flow.collect
 import javax.inject.Named
-import com.offtime.app.manager.PaymentHelper
 
 @HiltViewModel
 class PaymentViewModel @Inject constructor(
     private val userRepository: UserRepository,
-    private val paymentHelper: PaymentHelper
+    @Named("alipay") private val alipayPaymentManager: PaymentManager?,
+    @Named("google") private val googlePaymentManager: PaymentManager?
 ) : ViewModel() {
     
     // 价格配置
@@ -90,7 +90,18 @@ class PaymentViewModel @Inject constructor(
             )
             
             try {
-                paymentHelper.processPayment(activity, "premium_lifetime").collect { result ->
+                val paymentManager = when (_uiState.value.selectedPaymentMethod) {
+                    PaymentMethod.ALIPAY -> alipayPaymentManager
+                    PaymentMethod.GOOGLE_PLAY -> googlePaymentManager
+                    else -> null
+                }
+
+                if (paymentManager == null) {
+                    _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = "Payment method not available")
+                    return@launch
+                }
+
+                paymentManager.pay(activity, "premium_lifetime").collect { result ->
                     when (result) {
                         is PaymentResult.Loading -> _uiState.value = _uiState.value.copy(isLoading = true)
                         is PaymentResult.Success -> {

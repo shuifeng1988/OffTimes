@@ -20,8 +20,7 @@ abstract class GooglePlayManagerModule {
     @Named("google")
     abstract fun bindGoogleLoginManager(googleLoginManager: GoogleLoginManager): LoginManager
     
-    @Binds
-    abstract fun bindPaymentHelper(helper: com.offtime.app.ui.viewmodel.GooglePlayPaymentHelper): com.offtime.app.ui.viewmodel.PaymentHelper
+    // PaymentManager is now a concrete class, so we provide it directly.
 }
 
 @Module
