@@ -8,10 +8,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Apps
-import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Refresh
@@ -87,7 +86,7 @@ fun DailyUsageScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
                 actions = {
@@ -213,7 +212,7 @@ private fun DayUsageSection(dayData: DailyUsageByDate) {
                     modifier = Modifier.padding(bottom = 8.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.DirectionsRun,
+                        imageVector = Icons.AutoMirrored.Filled.DirectionsRun,
                         contentDescription = "线下活动",
                         tint = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier.size(18.dp)
@@ -309,7 +308,7 @@ private fun DayHeader(dayData: DailyUsageByDate) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Default.DirectionsRun,
+                        imageVector = Icons.AutoMirrored.Filled.DirectionsRun,
                         contentDescription = "线下活动",
                         tint = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier.size(16.dp)
@@ -431,7 +430,7 @@ private fun VirtualUsageItem(usageData: DailyVirtualUsageData) {
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Default.DirectionsRun,
+                imageVector = Icons.AutoMirrored.Filled.DirectionsRun,
                 contentDescription = "线下活动",
                 tint = MaterialTheme.colorScheme.onSecondaryContainer,
                 modifier = Modifier.size(24.dp)

@@ -68,6 +68,7 @@ class DebugRealTimeStatsViewModel @Inject constructor(
     private fun refreshServiceStatus() {
         try {
             val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            @Suppress("DEPRECATION")
             val services = activityManager.getRunningServices(Int.MAX_VALUE)
             
             val isRunning = services.any { 

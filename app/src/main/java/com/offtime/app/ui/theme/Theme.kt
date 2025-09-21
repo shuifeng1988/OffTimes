@@ -58,6 +58,7 @@ fun OffTimeTheme(
         SideEffect {
             val window = (view.context as Activity).window
             // 设置状态栏颜色为白色
+            @Suppress("DEPRECATION")
             window.statusBarColor = Color.White.toArgb()
             // 设置状态栏图标为深色，在白色背景上清晰可见
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true

@@ -161,7 +161,7 @@ object DateLocalizer {
      * 使用UnifiedTextManager确保与应用内语言设置一致
      * 例如: "俯卧撑30个" -> 根据应用语言设置显示中文或英文
      */
-    fun localizePunishmentText(context: Context, punishmentText: String): String {
+    fun localizePunishmentText(@Suppress("UNUSED_PARAMETER") context: Context, punishmentText: String): String {
         // 使用UnifiedTextManager的语言判断，而不是系统语言
         val isEnglish = UnifiedTextManager.isEnglish()
         val text = punishmentText.trim()
@@ -183,7 +183,7 @@ object DateLocalizer {
      * 使用UnifiedTextManager确保与应用内语言设置一致
      * 例如: "薯片1包" -> 根据应用语言设置显示中文或英文
      */
-    fun localizeRewardText(context: Context, rewardText: String): String {
+    fun localizeRewardText(@Suppress("UNUSED_PARAMETER") context: Context, rewardText: String): String {
         // 使用UnifiedTextManager的语言判断，而不是系统语言
         val isEnglish = UnifiedTextManager.isEnglish()
         val text = rewardText.trim()

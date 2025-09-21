@@ -252,6 +252,7 @@ class UsageStatsCollectorService : Service() {
      */
     private fun getCurrentForegroundApp(): String? {
         return try {
+            @Suppress("DEPRECATION")
             val runningTasks = activityManager.getRunningTasks(1)
             if (runningTasks.isNotEmpty()) {
                 val topActivity = runningTasks[0].topActivity
@@ -520,6 +521,7 @@ class UsageStatsCollectorService : Service() {
                 }
                 
                 // 增加一个变量来跟踪上一个前台应用
+                @Suppress("UNUSED_VARIABLE")
                 val previousForegroundPackage = currentForegroundPackage
 
                 // 如果OffTimes进入后台，重置标志
@@ -887,7 +889,7 @@ class UsageStatsCollectorService : Service() {
      * 1. 在其他应用正在前台运行时发生的RESUMED事件
      * 2. 短暂的RESUMED后立即PAUSED的事件
      */
-    private fun isOffTimesBackgroundEvent(event: UsageEvents.Event): Boolean {
+    private fun isOffTimesBackgroundEvent(@Suppress("UNUSED_PARAMETER") event: UsageEvents.Event): Boolean {
         // 此方法已废弃，新的逻辑直接在processUsageEvents中实现
         return false
     }

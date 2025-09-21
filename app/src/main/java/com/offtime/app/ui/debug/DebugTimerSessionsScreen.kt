@@ -7,10 +7,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material.icons.filled.DirectionsRun
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -46,7 +44,7 @@ fun DebugTimerSessionsScreen(
             title = { Text("线下活动表调试") },
             navigationIcon = {
                 IconButton(onClick = onNavigateBack) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                 }
             }
         )
@@ -358,7 +356,7 @@ private fun getTimerCategoryColor(catId: Int): Color {
 private fun getActivityIcon(programName: String): ImageVector {
     return when {
         programName.contains("跑步", ignoreCase = true) || 
-        programName.contains("running", ignoreCase = true) -> Icons.Default.DirectionsRun
+        programName.contains("running", ignoreCase = true) -> Icons.AutoMirrored.Filled.DirectionsRun
         
         programName.contains("健身", ignoreCase = true) || 
         programName.contains("gym", ignoreCase = true) ||
@@ -367,7 +365,7 @@ private fun getActivityIcon(programName: String): ImageVector {
         programName.contains("阅读", ignoreCase = true) || 
         programName.contains("reading", ignoreCase = true) ||
         programName.contains("学习", ignoreCase = true) ||
-        programName.contains("study", ignoreCase = true) -> Icons.Default.MenuBook
+        programName.contains("study", ignoreCase = true) -> Icons.AutoMirrored.Filled.MenuBook
         
         else -> Icons.Default.Timer
     }

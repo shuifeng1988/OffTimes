@@ -40,6 +40,7 @@ import com.offtime.app.service.DataAggregationService
 import com.offtime.app.service.UnifiedUpdateService
 import com.offtime.app.manager.SubscriptionManager
 import com.offtime.app.util.AppLifecycleObserver
+import com.offtime.app.util.DataUpdateEventManager
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.runBlocking
@@ -79,6 +80,9 @@ class MainActivity : ComponentActivity() {
     
     @Inject
     lateinit var localeUtils: LocaleUtils
+    
+    @Inject
+    lateinit var dataUpdateEventManager: DataUpdateEventManager
     
     /**
      * 活动创建时的初始化
@@ -136,14 +140,9 @@ class MainActivity : ComponentActivity() {
         // 检查是否已完成引导
         if (!firstLaunchManager.isFirstLaunch() && firstLaunchManager.isOnboardingCompleted()) {
             try {
-                // 🔧 关键修复：先处理历史未聚合数据
-                val historyIntent = Intent(this, DataAggregationService::class.java)
-                historyIntent.action = DataAggregationService.ACTION_PROCESS_HISTORICAL_DATA
-                startService(historyIntent)
-                
-                // 触发完整的统一数据更新
-                UnifiedUpdateService.triggerManualUpdate(this)
-                android.util.Log.d("MainActivity", "应用前台切换 → 触发历史数据补聚合 + 完整数据更新")
+                // 🔧 使用新的数据更新事件管理器触发应用恢复前台的数据更新
+                dataUpdateEventManager.triggerAppResumeUpdate(this)
+                android.util.Log.d("MainActivity", "应用前台切换 → 通过DataUpdateEventManager触发完整数据更新")
             } catch (e: Exception) {
                 android.util.Log.e("MainActivity", "触发前台切换数据更新失败", e)
             }

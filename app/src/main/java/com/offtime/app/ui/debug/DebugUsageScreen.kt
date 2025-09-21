@@ -8,7 +8,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SportsEsports
@@ -16,7 +16,6 @@ import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Refresh
@@ -62,7 +61,7 @@ fun DebugUsageScreen(
             title = { Text("📊 ${stringResource(R.string.debug_usage_screen_title)}") },
             navigationIcon = {
                 IconButton(onClick = onNavigateBack) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.debug_back))
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.debug_back))
                 }
             },
             actions = {
@@ -236,7 +235,7 @@ fun DebugUsageScreen(
                             itemsIndexed(dailyGroup.usageItems) { index, usage ->
                                 val usageColor = getUsageDebugColor(usage.catId)
                                 val categoryIcon = getCategoryIcon(usage.categoryName)
-                                val activityIcon = if (usage.isOffline) Icons.Default.DirectionsRun else Icons.Default.PhoneAndroid
+                                val activityIcon = if (usage.isOffline) Icons.AutoMirrored.Filled.DirectionsRun else Icons.Default.PhoneAndroid
                                 
                                 UsageDebugCard(
                                     usage = usage,

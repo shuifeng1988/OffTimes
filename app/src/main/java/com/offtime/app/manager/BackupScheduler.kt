@@ -93,6 +93,7 @@ class BackupScheduler @Inject constructor(
                 .build()
             
             // 将任务加入工作队列
+            @Suppress("UNUSED_VARIABLE")
             val operation = workManager.enqueueUniquePeriodicWork(
                 BackupWorker.WORK_NAME,
                 ExistingPeriodicWorkPolicy.UPDATE,
@@ -114,6 +115,7 @@ class BackupScheduler @Inject constructor(
      */
     suspend fun cancelBackupWork() = withContext(Dispatchers.IO) {
         try {
+            @Suppress("UNUSED_VARIABLE")
             val operation = workManager.cancelUniqueWork(BackupWorker.WORK_NAME)
             // operation.result.get() // 暂时注释掉，避免编译错误
             Log.i(TAG, "已取消自动备份任务")
@@ -144,6 +146,7 @@ class BackupScheduler @Inject constructor(
                 .build()
             
             // 执行立即备份
+            @Suppress("UNUSED_VARIABLE")
             val operation = workManager.enqueue(immediateBackupRequest)
             // operation.result.get() // 暂时注释掉，避免编译错误
             

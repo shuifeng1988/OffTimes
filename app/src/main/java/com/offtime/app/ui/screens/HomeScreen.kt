@@ -120,6 +120,7 @@ fun HomeScreen(
     
     // 下拉刷新状态
     val isRefreshing by homeViewModel.isRefreshing.collectAsState()
+    @Suppress("DEPRECATION")
     val swipeRefreshState = rememberSwipeRefreshState(isRefreshing)
     
     // 订阅状态
@@ -141,6 +142,7 @@ fun HomeScreen(
     
     // 当页面首次加载或重新进入时，自动触发一次完整的刷新
     LaunchedEffect(Unit) {
+        android.util.Log.d("HomeScreen", "🔄 页面加载触发数据更新")
         homeViewModel.onSwipeRefresh()
     }
 
@@ -151,6 +153,7 @@ fun HomeScreen(
     }
     
     // ========== 核心布局结构：下拉刷新 + 垂直滚动列表 ==========
+    @Suppress("DEPRECATION")
     SwipeRefresh(
         state = swipeRefreshState,
         onRefresh = { homeViewModel.onSwipeRefresh() },
@@ -644,7 +647,7 @@ private fun YesterdayDetailDialog(
                             )
                         }
                         
-                        Divider(
+                        HorizontalDivider(
                             color = Color(0xFF1976D2).copy(alpha = 0.2f),
                             thickness = 1.dp
                         )

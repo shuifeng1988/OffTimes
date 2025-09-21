@@ -9,6 +9,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -65,7 +66,7 @@ fun PaymentScreen(
             title = { Text(stringResource(R.string.payment_title)) },
             navigationIcon = {
                 IconButton(onClick = onNavigateBack) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.action_back))
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
@@ -468,7 +469,7 @@ fun getPaymentMethodDisplayName(method: PaymentMethod): String {
 fun getPaymentIcon(method: PaymentMethod): androidx.compose.ui.graphics.vector.ImageVector {
     return when (method) {
         PaymentMethod.ALIPAY -> Icons.Default.Payment
-        PaymentMethod.WECHAT -> Icons.Default.Chat
+        PaymentMethod.WECHAT -> Icons.AutoMirrored.Filled.Chat
         PaymentMethod.GOOGLE_PLAY -> Icons.Default.Store
         PaymentMethod.OTHER -> Icons.Default.CreditCard
     }

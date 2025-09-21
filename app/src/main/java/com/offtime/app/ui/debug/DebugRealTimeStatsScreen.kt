@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -68,7 +69,7 @@ fun DebugRealTimeStatsScreen(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onNavigateBack) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                 }
                 Text(
                     text = "实时统计调试",
@@ -423,7 +424,7 @@ private fun RealTimeTestCard(
                     onClick = onTestMerge,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.MergeType, contentDescription = null)
+                    Icon(Icons.AutoMirrored.Filled.MergeType, contentDescription = null)
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("测试智能合并")
                 }

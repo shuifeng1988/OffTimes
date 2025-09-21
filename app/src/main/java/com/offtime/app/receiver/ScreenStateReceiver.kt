@@ -7,6 +7,7 @@ import android.util.Log
 import com.offtime.app.service.UsageStatsCollectorService
 import com.offtime.app.utils.FirstLaunchManager
 import com.offtime.app.utils.UsageStatsPermissionHelper
+import com.offtime.app.util.DataUpdateEventManager
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -21,6 +22,7 @@ class ScreenStateReceiver : BroadcastReceiver() {
     @InstallIn(SingletonComponent::class)
     interface ScreenStateReceiverEntryPoint {
         fun firstLaunchManager(): FirstLaunchManager
+        fun dataUpdateEventManager(): DataUpdateEventManager
     }
 
     companion object {
@@ -33,6 +35,7 @@ class ScreenStateReceiver : BroadcastReceiver() {
             ScreenStateReceiverEntryPoint::class.java
         )
         val firstLaunchManager = hiltEntryPoint.firstLaunchManager()
+        val dataUpdateEventManager = hiltEntryPoint.dataUpdateEventManager()
 
         Log.d(TAG, "接收到广播: ${intent.action}")
 
@@ -48,15 +51,19 @@ class ScreenStateReceiver : BroadcastReceiver() {
             }
 
             Intent.ACTION_SCREEN_ON -> {
-                Log.d(TAG, "屏幕点亮，拉取使用事件")
-                // 屏幕点亮时，确保服务运行并拉取事件
+                Log.d(TAG, "屏幕点亮，触发数据更新")
+                // 屏幕点亮时，确保服务运行并触发完整数据更新
                 ensureServiceRunningAndPullEvents(context, firstLaunchManager)
+                // 🔧 新增：使用数据更新事件管理器触发亮屏数据更新
+                dataUpdateEventManager.triggerScreenOnUpdate(context)
             }
 
             Intent.ACTION_SCREEN_OFF -> {
-                Log.d(TAG, "屏幕关闭，拉取使用事件")
-                // 屏幕关闭时，拉取事件但不重启服务（避免频繁重启）
+                Log.d(TAG, "屏幕关闭，触发数据更新")
+                // 屏幕关闭时，拉取事件并触发轻量级数据更新
                 pullEventsIfServiceRunning(context)
+                // 🔧 新增：使用数据更新事件管理器触发熄屏数据更新
+                dataUpdateEventManager.triggerScreenOffUpdate(context)
             }
 
             Intent.ACTION_PACKAGE_ADDED,
@@ -115,6 +122,7 @@ class ScreenStateReceiver : BroadcastReceiver() {
             startUsageStatsCollectionIfReady(context, "屏幕点亮", firstLaunchManager)
 
             // 然后延迟拉取事件（给服务启动时间）
+            @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
             GlobalScope.launch {
                 delay(1000) // 等待1秒
                 pullEventsIfServiceRunning(context)

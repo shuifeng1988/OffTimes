@@ -41,7 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 fun StatsScreen(
     viewModel: StatsViewModel = hiltViewModel()
 ) {
-    // 获取响应式尺寸参数
+    // 获取响应式尺寸参数db -s emulator-5554 shell "logcat -v time -f offtimes_focus.log -s UsageStatsCollector:V UnifiedUpdateService:V AppSessionRepository:V ScreenStateReceiver:V DataAggregationService:V"
     val dimensions = LocalResponsiveDimensions
     
     // 获取屏幕配置信息
@@ -103,13 +103,16 @@ fun StatsScreen(
     
     // 下拉刷新状态
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    @Suppress("DEPRECATION")
     val swipeRefreshState = rememberSwipeRefreshState(isRefreshing)
 
     // 当页面首次加载或重新进入时，自动触发一次完整的刷新
     LaunchedEffect(Unit) {
+        android.util.Log.d("StatsScreen", "🔄 页面加载触发数据更新")
         viewModel.onSwipeRefresh()
     }
     
+    @Suppress("DEPRECATION")
     SwipeRefresh(
         state = swipeRefreshState,
         onRefresh = { viewModel.onSwipeRefresh() }

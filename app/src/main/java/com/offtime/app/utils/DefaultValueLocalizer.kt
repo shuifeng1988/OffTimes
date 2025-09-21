@@ -56,7 +56,7 @@ object DefaultValueLocalizer {
      * 本地化奖励文本
      * 使用统一文本管理器确保一致的转换
      */
-    fun localizeRewardText(context: Context, text: String): String {
+    fun localizeRewardText(@Suppress("UNUSED_PARAMETER") context: Context, text: String): String {
         return UnifiedTextManager.localizeRewardText(text)
     }
     
@@ -64,7 +64,7 @@ object DefaultValueLocalizer {
      * 本地化惩罚文本  
      * 使用统一文本管理器确保一致的转换
      */
-    fun localizePunishmentText(context: Context, text: String): String {
+    fun localizePunishmentText(@Suppress("UNUSED_PARAMETER") context: Context, text: String): String {
         return UnifiedTextManager.localizePunishmentText(text)
     }
     
@@ -72,7 +72,7 @@ object DefaultValueLocalizer {
      * 本地化奖励单位文本
      * 使用统一文本管理器确保一致的转换  
      */
-    fun localizeRewardUnit(context: Context, text: String): String {
+    fun localizeRewardUnit(@Suppress("UNUSED_PARAMETER") context: Context, text: String): String {
         return UnifiedTextManager.localizeUnitText(text)
     }
     
@@ -80,7 +80,7 @@ object DefaultValueLocalizer {
      * 本地化惩罚单位文本
      * 使用统一文本管理器确保一致的转换
      */
-    fun localizePunishmentUnit(context: Context, text: String): String {
+    fun localizePunishmentUnit(@Suppress("UNUSED_PARAMETER") context: Context, text: String): String {
         return UnifiedTextManager.localizeUnitText(text)
     }
     
@@ -88,7 +88,7 @@ object DefaultValueLocalizer {
      * 本地化时间单位
      * 根据系统语言返回相应的时间单位
      */
-    fun localizeTimeUnit(context: Context, text: String): String {
+    fun localizeTimeUnit(@Suppress("UNUSED_PARAMETER") context: Context, text: String): String {
         return if (UnifiedTextManager.isEnglish()) {
             when (text) {
                 "分钟" -> "minutes"
@@ -137,14 +137,14 @@ object DefaultValueLocalizer {
             if (localizedUnit.isEmpty()) {
                 "$localizedText $number" // e.g., "Chips 2"
             } else {
-                val unit = if (number == 1) localizedUnit else {
+                val pluralUnit = if (number == 1) localizedUnit else {
                     // 简单的复数处理
                     when (localizedUnit) {
                         "pack" -> "packs"
                         else -> "${localizedUnit}s"
                     }
                 }
-                "$localizedText $number $unit" // e.g., "Chips 2 packs"
+                "$localizedText $number $pluralUnit" // e.g., "Chips 2 packs"
             }
         } else {
             // 中文环境：保持原格式

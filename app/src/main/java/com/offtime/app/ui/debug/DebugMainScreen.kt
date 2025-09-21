@@ -6,6 +6,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -101,7 +102,7 @@ fun DebugMainScreen(
         DebugTableItem(
             title = stringResource(R.string.debug_daily_usage_summary_title),
             description = stringResource(R.string.debug_daily_usage_summary_desc),
-            icon = Icons.Default.ListAlt,
+            icon = Icons.AutoMirrored.Filled.ListAlt,
             route = "daily_usage",
             category = stringResource(R.string.debug_category_usage_stats),
             categoryColor = Color(0xFF2196F3)
@@ -133,7 +134,7 @@ fun DebugMainScreen(
         DebugTableItem(
             title = stringResource(R.string.debug_reward_punishment_user_title),
             description = stringResource(R.string.debug_reward_punishment_user_desc),
-            icon = Icons.Default.Assignment,
+            icon = Icons.AutoMirrored.Filled.Assignment,
             route = "debug_reward_punishment_user",
             category = stringResource(R.string.debug_category_reward_punishment),
             categoryColor = Color(0xFFFF9800)
@@ -251,7 +252,7 @@ fun DebugMainScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.debug_back))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.debug_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

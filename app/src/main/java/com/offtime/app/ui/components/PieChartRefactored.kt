@@ -701,7 +701,7 @@ private fun LoadingPunishmentCard(modifier: Modifier = Modifier) {
 @Composable
 private fun OfflineTimerModule(
     isTimerRunning: Boolean,
-    isTimerPaused: Boolean,
+    @Suppress("UNUSED_PARAMETER") isTimerPaused: Boolean,
     isTimerInBackground: Boolean,
     isCurrentCategoryTiming: Boolean,
     timerHours: Int,
@@ -842,7 +842,7 @@ private fun OfflineTimerModule(
 @Composable
 private fun CountdownTimerModule(
     isCountdownTimerRunning: Boolean,
-    isCountdownTimerPaused: Boolean,
+    @Suppress("UNUSED_PARAMETER") isCountdownTimerPaused: Boolean,
     isCountdownInBackground: Boolean,
     isCurrentCategoryCountdownTiming: Boolean,
     countdownHours: Int,

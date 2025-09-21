@@ -119,7 +119,7 @@ class PaymentViewModel @Inject constructor(
     /**
      * 处理支付宝支付
      */
-    private suspend fun processAlipayPayment(activity: Activity) {
+    private suspend fun processAlipayPayment(@Suppress("UNUSED_PARAMETER") activity: Activity) {
         try {
             // 调试模式：模拟支付成功
             if (com.offtime.app.BuildConfig.DEBUG) {
@@ -228,7 +228,7 @@ class PaymentViewModel @Inject constructor(
     /**
      * 处理Google Play支付
      */
-    private suspend fun processGooglePlayPayment(activity: Activity) {
+    private suspend fun processGooglePlayPayment(@Suppress("UNUSED_PARAMETER") activity: Activity) {
         try {
             // 调试模式：模拟支付成功
             if (com.offtime.app.BuildConfig.DEBUG) {

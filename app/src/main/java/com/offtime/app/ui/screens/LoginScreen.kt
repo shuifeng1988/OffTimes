@@ -8,6 +8,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -50,7 +51,7 @@ fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val currentContext = androidx.compose.ui.platform.LocalContext.current
     
     // 屏幕适配
     val configuration = LocalConfiguration.current
@@ -106,7 +107,7 @@ fun LoginScreen(
         ) {
             IconButton(onClick = onBack) {
                 Icon(
-                    imageVector = Icons.Default.ArrowBack,
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = stringResource(R.string.back_button)
                 )
             }
@@ -165,13 +166,13 @@ fun LoginScreen(
             GoogleOnlyLoginContent(
                 isLoading = uiState.isLoading,
                 onGoogleLogin = {
-                    if (context is android.app.Activity) {
-                        viewModel.loginWithGoogle(context, forceAccountPicker = false)
+                    if (currentContext is android.app.Activity) {
+                        viewModel.loginWithGoogle(currentContext, forceAccountPicker = false)
                     }
                 },
                 onSwitchAccount = {
-                    if (context is android.app.Activity) {
-                        viewModel.loginWithGoogle(context, forceAccountPicker = true)
+                    if (currentContext is android.app.Activity) {
+                        viewModel.loginWithGoogle(currentContext, forceAccountPicker = true)
                     }
                 }
             )
@@ -301,7 +302,7 @@ fun LoginScreen(
                         label = { Text(stringResource(R.string.login_verification_code)) },
                         placeholder = { Text(stringResource(R.string.login_verification_code_placeholder)) },
                         leadingIcon = {
-                            Icon(Icons.Default.Message, contentDescription = null)
+                            Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null)
                         },
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Number,
@@ -435,8 +436,8 @@ fun LoginScreen(
                             
                             OutlinedButton(
                                 onClick = { 
-                                    if (context is android.app.Activity) {
-                                        viewModel.loginWithGoogle(context)
+                                    if (currentContext is android.app.Activity) {
+                                        viewModel.loginWithGoogle(currentContext)
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth()
@@ -474,7 +475,7 @@ fun LoginScreen(
                     label = { Text("验证码") },
                     placeholder = { Text("请输入验证码") },
                     leadingIcon = {
-                        Icon(Icons.Default.Message, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null)
                     },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Number,
@@ -528,8 +529,6 @@ fun LoginScreen(
         
         Spacer(modifier = Modifier.height(verticalSpacing * 2))
         
-        // 获取当前Activity上下文
-        val context = LocalContext.current
         
         // 主要操作按钮（Google Play纯登录版本不显示此按钮）
         if (!(BuildConfig.ENABLE_GOOGLE_LOGIN && !BuildConfig.ENABLE_SMS_LOGIN && !BuildConfig.ENABLE_PASSWORD_LOGIN)) {
@@ -542,13 +541,13 @@ fun LoginScreen(
                         LoginType.PASSWORD -> viewModel.loginWithPassword()
                         LoginType.SMS_CODE -> viewModel.loginWithSmsCode()
                         LoginType.ALIPAY -> {
-                            if (context is android.app.Activity) {
-                                viewModel.loginWithAlipay(context)
+                            if (currentContext is android.app.Activity) {
+                                viewModel.loginWithAlipay(currentContext)
                             }
                         }
                         LoginType.GOOGLE -> {
-                            if (context is android.app.Activity) {
-                                viewModel.loginWithGoogle(context)
+                            if (currentContext is android.app.Activity) {
+                                viewModel.loginWithGoogle(currentContext)
                             }
                         }
                     }

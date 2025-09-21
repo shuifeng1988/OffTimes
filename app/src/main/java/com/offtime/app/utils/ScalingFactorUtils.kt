@@ -342,6 +342,7 @@ object ScalingFactorUtils {
     @Composable
     fun getSimpleScalingFactor(): Float {
         val configuration = LocalConfiguration.current
+        @Suppress("UNUSED_VARIABLE")
         val density = LocalDensity.current
         
         val widthDp = configuration.screenWidthDp.toFloat()

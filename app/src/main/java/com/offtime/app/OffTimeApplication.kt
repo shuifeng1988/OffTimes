@@ -64,6 +64,7 @@ class OffTimeApplication : Application() {
             startDataCollectionServices()
             
             // 后台检查并初始化数据（避免用户数据丢失）
+            @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
             GlobalScope.launch {
                 try {
                     // 首先检查默认分类数据是否存在
@@ -151,6 +152,7 @@ class OffTimeApplication : Application() {
                 android.util.Log.d("OffTimeApplication", "检测到系统语言变化: $lastLanguage → $currentLanguage, 开始更新数据库")
                 
                 // 后台更新数据库中的语言相关数据
+                @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
                 GlobalScope.launch {
                     try {
                         updateLanguageRelatedData()

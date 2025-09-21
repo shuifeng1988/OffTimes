@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -65,7 +66,7 @@ fun DebugDataCollectionScreen(
                 title = { Text(stringResource(R.string.debug_data_collection_screen_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.debug_back))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.debug_back))
                     }
                 }
             )
@@ -348,6 +349,7 @@ private fun EventItem(event: RecentEvent) {
  */
 private fun isUsageStatsCollectorServiceRunning(context: Context): Boolean {
     val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+    @Suppress("DEPRECATION")
     val services = activityManager.getRunningServices(Int.MAX_VALUE)
     for (service in services) {
         if (UsageStatsCollectorService::class.java.name == service.service.className) {

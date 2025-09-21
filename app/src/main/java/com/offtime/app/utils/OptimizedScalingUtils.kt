@@ -113,7 +113,7 @@ object OptimizedScalingUtils {
     private fun determineScalingStrategy(
         deviceType: DeviceType,
         density: Float,
-        diagonalInches: Float
+        @Suppress("UNUSED_PARAMETER") diagonalInches: Float
     ): ScalingStrategy {
         return when {
             // 已有完善资源适配的密度范围，优先使用资源文件

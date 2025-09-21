@@ -54,6 +54,7 @@ object PermissionUtils {
             val packageManager = context.packageManager
             val applicationInfo = packageManager.getApplicationInfo(context.packageName, 0)
             val appOpsManager = context.getSystemService(Context.APP_OPS_SERVICE) as android.app.AppOpsManager
+            @Suppress("DEPRECATION")
             val mode = appOpsManager.checkOpNoThrow(
                 android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,
                 applicationInfo.uid,

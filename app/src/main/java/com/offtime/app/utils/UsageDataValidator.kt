@@ -206,6 +206,7 @@ class UsageDataValidator @Inject constructor(
             val endCalendar = Calendar.getInstance().apply { timeInMillis = session.endTime }
             
             val startHour = startCalendar.get(Calendar.HOUR_OF_DAY)
+            @Suppress("UNUSED_VARIABLE")
             val endHour = endCalendar.get(Calendar.HOUR_OF_DAY)
             
             val suspiciousReasons = mutableListOf<String>()

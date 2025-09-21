@@ -6,7 +6,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -55,7 +55,7 @@ fun GoalRewardPunishmentScreen(
             },
             navigationIcon = {
                 IconButton(onClick = onNavigateBack) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.action_back))
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                 }
             }
         )
@@ -310,7 +310,7 @@ private fun GoalInfoDisplay(
         }
         
         Spacer(modifier = Modifier.height(12.dp))
-        Divider()
+        HorizontalDivider()
         Spacer(modifier = Modifier.height(12.dp))
         
         // 奖励和惩罚
@@ -559,7 +559,7 @@ private fun GoalEditDialog(
                                 @OptIn(ExperimentalMaterial3Api::class)
                                 ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) 
                             },
-                            modifier = Modifier.menuAnchor(),
+                            modifier = @Suppress("DEPRECATION") Modifier.menuAnchor(),
                             textStyle = androidx.compose.ui.text.TextStyle(fontSize = 16.sp),
                             singleLine = true
                         )
@@ -701,7 +701,7 @@ private fun GoalEditDialog(
                                 @OptIn(ExperimentalMaterial3Api::class)
                                 ExposedDropdownMenuDefaults.TrailingIcon(expanded = rewardTimeExpanded) 
                             },
-                            modifier = Modifier.menuAnchor(),
+                            modifier = @Suppress("DEPRECATION") Modifier.menuAnchor(),
                             textStyle = androidx.compose.ui.text.TextStyle(fontSize = 16.sp)
                         )
                         @OptIn(ExperimentalMaterial3Api::class)
@@ -840,7 +840,7 @@ private fun GoalEditDialog(
                                 @OptIn(ExperimentalMaterial3Api::class)
                                 ExposedDropdownMenuDefaults.TrailingIcon(expanded = punishTimeExpanded) 
                             },
-                            modifier = Modifier.menuAnchor(),
+                            modifier = @Suppress("DEPRECATION") Modifier.menuAnchor(),
                             textStyle = androidx.compose.ui.text.TextStyle(fontSize = 16.sp)
                         )
                         @OptIn(ExperimentalMaterial3Api::class)

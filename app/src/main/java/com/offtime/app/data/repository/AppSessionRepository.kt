@@ -237,7 +237,7 @@ class AppSessionRepository @Inject constructor(
                 packageName = packageName,
                 appName = appInfo.loadLabel(pm).toString(),
                 versionName = packageInfo.versionName ?: "N/A",
-                versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) packageInfo.longVersionCode else packageInfo.versionCode.toLong(),
+                versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) packageInfo.longVersionCode else @Suppress("DEPRECATION") packageInfo.versionCode.toLong(),
                 isSystemApp = (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0,
                 categoryId = categoryId,
                 firstInstallTime = packageInfo.firstInstallTime,
@@ -296,7 +296,7 @@ class AppSessionRepository @Inject constructor(
         }
     }
     
-    suspend fun getCurrentActiveUsageByCategory(categoryId: Int): Int {
+    suspend fun getCurrentActiveUsageByCategory(@Suppress("UNUSED_PARAMETER") categoryId: Int): Int {
         // This is a deprecated calculation. Returning 0 to avoid incorrect values.
         return 0
     }

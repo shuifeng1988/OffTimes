@@ -24,6 +24,9 @@ import com.offtime.app.data.entity.AppCategoryEntity
 import com.offtime.app.data.entity.AppSessionUserEntity
 import com.offtime.app.utils.DataMigrationHelper
 import javax.inject.Inject
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -43,7 +46,6 @@ import com.offtime.app.utils.DefaultValueLocalizer
 import com.offtime.app.utils.DateLocalizer
 import com.offtime.app.utils.UnifiedTextManager
 import kotlinx.coroutines.Job
-import com.offtime.app.manager.AdManager
 import android.app.Activity
 
 /**
@@ -137,6 +139,12 @@ import android.app.Activity
  * @version 2.0 - 重构版本，优化奖罚机制和数据一致性
  * @since 1.0
  */
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface DataUpdateEventManagerEntryPoint {
+    fun dataUpdateEventManager(): com.offtime.app.util.DataUpdateEventManager
+}
+
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     // === 核心数据仓库 ===
@@ -163,8 +171,7 @@ class HomeViewModel @Inject constructor(
     private val repository: GoalRewardPunishmentRepository,      // 目标奖罚仓库
     private val timerSessionRepository: TimerSessionRepository,  // 计时器会话仓库
     private val userRepository: UserRepository,                  // 用户仓库
-    private val subscriptionManager: SubscriptionManager, // 订阅管理器
-    private val adManager: AdManager
+    private val subscriptionManager: SubscriptionManager // 订阅管理器
 ) : ViewModel() {
 
 
@@ -574,8 +581,21 @@ class HomeViewModel @Inject constructor(
                 android.util.Log.d("HomeViewModel", "🔄 开始下拉刷新")
                 _isRefreshing.value = true
                 
-                // 触发统一更新服务进行完整的数据更新
-                com.offtime.app.service.UnifiedUpdateService.triggerManualUpdate(context)
+                // 🔧 使用数据更新事件管理器触发手动刷新
+                val dataUpdateEventManager = try {
+                    // 通过Hilt获取DataUpdateEventManager实例
+                    dagger.hilt.android.EntryPointAccessors.fromApplication(
+                        context.applicationContext,
+                        DataUpdateEventManagerEntryPoint::class.java
+                    ).dataUpdateEventManager()
+                } catch (e: Exception) {
+                    android.util.Log.w("HomeViewModel", "无法获取DataUpdateEventManager，使用传统方式", e)
+                    // 回退到传统方式
+                    com.offtime.app.service.UnifiedUpdateService.triggerManualUpdate(context)
+                    null
+                }
+                
+                dataUpdateEventManager?.triggerManualRefreshUpdate(context)
                 
                 // 等待数据更新完成（包含基础数据→聚合数据→UI的完整流程）
                 kotlinx.coroutines.delay(3000)
@@ -5419,6 +5439,7 @@ class HomeViewModel @Inject constructor(
     fun loadSubscriptionInfo() {
         viewModelScope.launch {
             try {
+                @Suppress("UNUSED_VARIABLE")
                 val info = userRepository.getUserSubscriptionInfo()
                 android.util.Log.d("HomeViewModel", "订阅信息已刷新")
             } catch (e: Exception) {

@@ -114,6 +114,7 @@ class StatsViewModel @Inject constructor(
     @Deprecated("使用各模块独立的period状态")
     private val _selectedPeriod = MutableStateFlow("今日")
     @Deprecated("使用各模块独立的period状态")
+    @Suppress("DEPRECATION")
     val selectedPeriod: StateFlow<String> = _selectedPeriod.asStateFlow()
     
     // 分类使用数据
@@ -268,6 +269,7 @@ class StatsViewModel @Inject constructor(
     
     // 保留原有方法用于向后兼容（已弃用）
     @Deprecated("使用各模块独立的setPeriod方法")
+    @Suppress("DEPRECATION")
     fun setPeriod(period: String) {
         _selectedPeriod.value = period
         loadAllData()

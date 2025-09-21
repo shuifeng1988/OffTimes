@@ -80,6 +80,7 @@ class GooglePlayBillingManager @Inject constructor(
      */
     fun initialize() {
         if (billingClient == null) {
+            @Suppress("DEPRECATION")
             billingClient = BillingClient.newBuilder(context)
                 .setListener(this)
                 .enablePendingPurchases() // Required for Google Play Billing Library 7.0.0

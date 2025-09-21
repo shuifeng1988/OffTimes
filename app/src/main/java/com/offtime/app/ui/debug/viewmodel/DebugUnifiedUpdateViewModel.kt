@@ -98,6 +98,7 @@ class DebugUnifiedUpdateViewModel @Inject constructor(
     private fun isUnifiedUpdateServiceRunning(): Boolean {
         return try {
             val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            @Suppress("DEPRECATION")
             val runningServices = activityManager.getRunningServices(Integer.MAX_VALUE)
             
             val serviceName = "com.offtime.app.service.UnifiedUpdateService"
