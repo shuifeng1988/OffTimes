@@ -87,9 +87,19 @@ class GoogleLoginManager @Inject constructor(
      * 启动Google登录流程（强制显示账号选择器）
      */
     fun getSignInIntentWithAccountPicker(): Intent {
+        Log.d(TAG, "🔄 强制显示Google账号选择器")
         // 使用新的客户端实例，先退出当前登录状态，确保显示账号选择器
         val client = initializeGoogleSignInClientWithAccountPicker()
-        client.signOut()
+        
+        // 先尝试撤销访问权限，这样会强制显示账号选择器
+        try {
+            client.revokeAccess()
+            Log.d(TAG, "✅ 已撤销Google访问权限，将强制显示账号选择器")
+        } catch (e: Exception) {
+            Log.w(TAG, "⚠️ 撤销访问权限失败，尝试普通退出", e)
+            client.signOut()
+        }
+        
         return client.signInIntent
     }
     

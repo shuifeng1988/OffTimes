@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.first
 import java.security.MessageDigest
 import java.util.*
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 /**
@@ -28,7 +29,8 @@ import javax.inject.Singleton
 class UserRepository @Inject constructor(
     private val userDao: UserDao,
     private val userApiService: UserApiService,
-    private val context: Context
+    private val context: Context,
+    @Named("google") private val googleLoginManager: com.offtime.app.manager.interfaces.LoginManager? = null
 ) {
     
     companion object {
@@ -624,6 +626,30 @@ class UserRepository @Inject constructor(
                 userApiService.logout("Bearer $token")
             }
             
+            // 如果是Google登录用户，清除Google账号缓存
+            val currentUser = getCurrentUser()
+            if (currentUser?.googleId?.isNotEmpty() == true && googleLoginManager != null) {
+                try {
+                    Log.d("UserRepository", "🔄 撤销Google账号访问权限，强制重新选择账号")
+                    // 使用revokeAccess()方法完全撤销访问权限，这样下次登录会强制显示账号选择器
+                    if (googleLoginManager is com.offtime.app.manager.GoogleLoginManager) {
+                        val method = googleLoginManager::class.java.getMethod("revokeAccess")
+                        val success = method.invoke(googleLoginManager) as Boolean
+                        if (success) {
+                            Log.d("UserRepository", "✅ Google账号访问权限撤销成功")
+                        } else {
+                            Log.w("UserRepository", "⚠️ Google账号访问权限撤销失败，尝试普通退出")
+                            googleLoginManager.logout()
+                        }
+                    } else {
+                        // 如果不是GoogleLoginManager实例，使用普通退出
+                        googleLoginManager.logout()
+                    }
+                } catch (e: Exception) {
+                    Log.w("UserRepository", "⚠️ 清除Google账号缓存失败，但继续执行本地清理", e)
+                }
+            }
+            
             // 清除本地数据
             userDao.logoutAllUsers()
             clearTokens()
@@ -631,6 +657,21 @@ class UserRepository @Inject constructor(
             Result.success(Unit)
         } catch (e: Exception) {
             // 即使服务器调用失败，也要清除本地数据
+            try {
+                // 尝试清除Google账号缓存
+                val currentUser = getCurrentUser()
+                if (currentUser?.googleId?.isNotEmpty() == true && googleLoginManager != null) {
+                    if (googleLoginManager is com.offtime.app.manager.GoogleLoginManager) {
+                        val method = googleLoginManager::class.java.getMethod("revokeAccess")
+                        method.invoke(googleLoginManager)
+                    } else {
+                        googleLoginManager.logout()
+                    }
+                }
+            } catch (googleException: Exception) {
+                Log.w("UserRepository", "清除Google账号缓存失败", googleException)
+            }
+            
             userDao.logoutAllUsers()
             clearTokens()
             Result.success(Unit)
