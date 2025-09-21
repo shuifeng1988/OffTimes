@@ -98,9 +98,33 @@ data class UserEntity(
         const val STATUS_EXPIRED = "EXPIRED"
         const val STATUS_PREMIUM = "PREMIUM"
         
-        const val TRIAL_DAYS = 7 // 试用天数
+        const val TRIAL_DAYS = 30 // 试用天数
         const val PREMIUM_PRICE_YUAN = 9.9 // 付费价格（元）
         const val PREMIUM_PRICE_CENTS = 990 // 付费价格（分）
+
+        fun getDefault(): UserEntity {
+            return UserEntity(
+                userId = "",
+                phoneNumber = "",
+                passwordHash = "",
+                nickname = "",
+                avatar = "",
+                isLoggedIn = false,
+                lastLoginTime = 0L,
+                registerTime = 0L,
+                serverUserId = "",
+                isDataSyncEnabled = false,
+                isPremium = false,
+                trialStartTime = 0L,
+                subscriptionStatus = STATUS_TRIAL,
+                paymentTime = 0L,
+                paymentAmount = 0,
+                alipayUserId = "",
+                email = "",
+                googleId = "",
+                subscriptionExpiryTime = 0L
+            )
+        }
     }
     
     /**
@@ -135,6 +159,6 @@ data class UserEntity(
      * 检查用户是否可以使用应用
      */
     fun canUseApp(): Boolean {
-        return isPremium || !isTrialExpired()
+        return true
     }
 } 

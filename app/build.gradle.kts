@@ -189,6 +189,9 @@ dependencies {
     
     // Google Play Billing - 只在Google Play版本中使用 (升级到7.0.0以满足Google Play要求)
     "googleplayImplementation"("com.android.billingclient:billing-ktx:7.0.0")
+
+    // Google Mobile Ads SDK (AdMob) - 只在Google Play版本中使用
+    "googleplayImplementation"("com.google.android.gms:play-services-ads:23.1.0")
     
     // Firebase 完全移除以解决前台服务启动问题
     // "googleplayImplementation"(platform("com.google.firebase:firebase-bom:32.6.0"))

@@ -39,6 +39,7 @@ import com.offtime.app.utils.ProvideLocaleUtils
 import com.offtime.app.service.DataAggregationService
 import com.offtime.app.service.UnifiedUpdateService
 import com.offtime.app.manager.SubscriptionManager
+import com.offtime.app.util.AppLifecycleObserver
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.runBlocking
@@ -130,6 +131,7 @@ class MainActivity : ComponentActivity() {
      */
     override fun onResume() {
         super.onResume()
+        AppLifecycleObserver.onActivityResumed()
         
         // 检查是否已完成引导
         if (!firstLaunchManager.isFirstLaunch() && firstLaunchManager.isOnboardingCompleted()) {
@@ -148,6 +150,11 @@ class MainActivity : ComponentActivity() {
         } else {
             android.util.Log.d("MainActivity", "应用尚未完成引导，跳过前台切换数据更新")
         }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        AppLifecycleObserver.onActivityPaused()
     }
 }
 

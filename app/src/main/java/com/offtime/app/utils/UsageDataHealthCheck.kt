@@ -79,11 +79,7 @@ object UsageDataHealthCheck {
         // 1. 检查异常长时间会话
         allSessions.forEach { session ->
             val durationHours = session.durationSec / 3600.0
-            val threshold = when {
-                BackgroundAppFilterUtils.isHighFrequencyBackgroundApp(session.pkgName) -> 2.0
-                BackgroundAppFilterUtils.isBackgroundResidentApp(session.pkgName) -> 3.0
-                else -> 6.0
-            }
+            val threshold = 6.0 // 普通应用：6小时
             
             if (durationHours > threshold) {
                 suspiciousSessions.add(

@@ -191,4 +191,7 @@ interface AppSessionUserDao {
     
     @Query("SELECT * FROM app_sessions_users WHERE pkgName = :pkgName AND date = :date AND startTime = :startTime LIMIT 1")
     suspend fun getActiveSessionByPackage(pkgName: String, date: String, startTime: Long): AppSessionUserEntity?
+
+    @Query("DELETE FROM app_sessions_users WHERE id IN (:sessionIds)")
+    suspend fun deleteSessionsByIds(sessionIds: List<Int>)
 } 

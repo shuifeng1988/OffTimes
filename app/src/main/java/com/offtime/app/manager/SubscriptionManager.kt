@@ -22,7 +22,9 @@ class SubscriptionManager @Inject constructor(
     
     companion object {
         private const val KEY_INSTALL_TIME = "app_install_time"
-        private const val TRIAL_DURATION_DAYS = 7L
+        private const val KEY_AD_PASS_EXPIRY = "ad_pass_expiry_time"
+        private const val TRIAL_DURATION_DAYS = 30L
+        private const val AD_PASS_DURATION_HOURS = 24L
         private const val TAG = "SubscriptionManager"
     }
     
@@ -56,10 +58,16 @@ class SubscriptionManager @Inject constructor(
     // 是否还在试用期内
     val isInTrialPeriod: Boolean
         get() = System.currentTimeMillis() < trialEndTime
+
+    // 广告通行证是否有效
+    private fun isAdPassActive(): Boolean {
+        val expiryTime = prefs.getLong(KEY_AD_PASS_EXPIRY, 0L)
+        return System.currentTimeMillis() < expiryTime
+    }
     
     /**
      * 检查用户是否可以使用应用
-     * 优先检查付费状态，其次检查试用期
+     * 优先检查付费状态，其次检查广告通行证，最后检查试用期
      */
     suspend fun canUserUseApp(): Boolean {
         // 首先检查是否有付费用户
@@ -69,11 +77,16 @@ class SubscriptionManager @Inject constructor(
                 return true
             }
             
+            // 检查广告通行证
+            if (isAdPassActive()) {
+                return true
+            }
+
             // 没有付费用户，检查试用期
             isInTrialPeriod
         } catch (e: Exception) {
-            // 如果无法获取用户信息，检查试用期
-            isInTrialPeriod
+            // 如果无法获取用户信息，检查试用期或广告通行证
+            isAdPassActive() || isInTrialPeriod
         }
     }
     
@@ -118,6 +131,7 @@ class SubscriptionManager @Inject constructor(
             trialDaysRemaining = if (isPremiumUser) 0 else trialDaysRemaining,
             isPremium = isPremiumUser,
             canUseApp = canUserUseApp(),
+            isAdPassActive = isAdPassActive(),
             trialStartTime = appInstallTime,
             trialEndTime = trialEndTime,
             hasLoggedInUser = currentUser != null && currentUser.isLoggedIn
@@ -134,6 +148,14 @@ class SubscriptionManager @Inject constructor(
         } catch (e: Exception) {
             false
         }
+    }
+
+    /**
+     * 授予用户24小时的广告通行证
+     */
+    fun grantAdPass() {
+        val expiryTime = System.currentTimeMillis() + (AD_PASS_DURATION_HOURS * 60 * 60 * 1000)
+        prefs.edit().putLong(KEY_AD_PASS_EXPIRY, expiryTime).apply()
     }
     
     /**
@@ -160,6 +182,7 @@ class SubscriptionManager @Inject constructor(
         val trialDaysRemaining: Int,           // 试用期剩余天数
         val isPremium: Boolean,                // 是否是付费用户
         val canUseApp: Boolean,                // 是否可以使用应用
+        val isAdPassActive: Boolean,           // 广告通行证是否有效
         val trialStartTime: Long,              // 试用期开始时间
         val trialEndTime: Long,                // 试用期结束时间
         val hasLoggedInUser: Boolean           // 是否有已登录用户

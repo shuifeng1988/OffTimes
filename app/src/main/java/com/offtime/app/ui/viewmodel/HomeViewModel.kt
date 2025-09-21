@@ -43,6 +43,8 @@ import com.offtime.app.utils.DefaultValueLocalizer
 import com.offtime.app.utils.DateLocalizer
 import com.offtime.app.utils.UnifiedTextManager
 import kotlinx.coroutines.Job
+import com.offtime.app.manager.AdManager
+import android.app.Activity
 
 /**
  * OffTime应用首页视图模型
@@ -161,7 +163,8 @@ class HomeViewModel @Inject constructor(
     private val repository: GoalRewardPunishmentRepository,      // 目标奖罚仓库
     private val timerSessionRepository: TimerSessionRepository,  // 计时器会话仓库
     private val userRepository: UserRepository,                  // 用户仓库
-    private val subscriptionManager: com.offtime.app.manager.SubscriptionManager // 订阅管理器
+    private val subscriptionManager: SubscriptionManager, // 订阅管理器
+    private val adManager: AdManager
 ) : ViewModel() {
 
 
@@ -533,26 +536,6 @@ class HomeViewModel @Inject constructor(
     }
     
     /**
-     * 观看广告延长使用期限
-     */
-    fun watchAdForExtension() {
-        viewModelScope.launch {
-            try {
-                val success = subscriptionManager.watchAdForExtension()
-                if (success) {
-                    android.util.Log.d("HomeViewModel", "观看广告成功，延长使用期限")
-                    // 刷新订阅信息
-                    loadSubscriptionInfo()
-                } else {
-                    android.util.Log.w("HomeViewModel", "观看广告失败，可能已达每日上限")
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("HomeViewModel", "观看广告处理失败", e)
-            }
-        }
-    }
-    
-    /**
      * 手动刷新当前数据
      * 用于用户操作后（如线下计时结束）需要立即看到最新数据的场景
      */
@@ -729,9 +712,6 @@ class HomeViewModel @Inject constructor(
         val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
         return dateFormat.format(java.util.Date())
     }
-
-
-
     /**
      * 计算具体的奖励内容 - 核心奖励逻辑实现
      * 
@@ -1404,7 +1384,7 @@ class HomeViewModel @Inject constructor(
                         // 计算具体的惩罚内容
                         updatePunishmentTextFromYesterdayDetailData(categoryId, date)
                     }
-                    android.util.Log.d("HomeViewModel", "自动生成昨日奖罚记录并设置状态: goalCompleted=${yesterdayGoalResult.goalCompleted}, reward=${_yesterdayRewardDone.value}, punishment=${_yesterdayPunishDone.value}")
+                    android.util.Log.d("HomeViewModel", "自动生成昨日奖惩记录并设置状态: goalCompleted=${yesterdayGoalResult.goalCompleted}, reward=${_yesterdayRewardDone.value}, punishment=${_yesterdayPunishDone.value}")
                     android.util.Log.d("HomeViewModel", "最终UI状态: goalMet=${_yesterdayGoalMet.value}, rewardDone=${_yesterdayRewardDone.value}, punishDone=${_yesterdayPunishDone.value}")
                 } else {
                     // 没有任何数据，设置默认状态
@@ -1497,7 +1477,6 @@ class HomeViewModel @Inject constructor(
             YesterdayGoalResult(hasData = false, goalCompleted = false)
         }
     }
-    
     /**
      * 检查昨日是否有任何数据记录
      * 更精准地判断"真正的无数据"vs"有监控但使用时间为0"
@@ -2240,7 +2219,6 @@ class HomeViewModel @Inject constructor(
             emptyList()
         }
     }
-
     /**
      * 获取所有应用的使用详情（跨所有分类）
      * @param date 日期
@@ -2982,7 +2960,6 @@ class HomeViewModel @Inject constructor(
             _rewardPunishmentData.value = emptyList()
         }
     }
-    
     /**
      * 加载最近15周的平均每日使用量 - 使用聚合表优化
      */
@@ -3766,7 +3743,6 @@ class HomeViewModel @Inject constructor(
             0f
         }
     }
-    
     /**
      * 生成日期时间轴：智能调整时间轴显示逻辑
      * - 如果没有历史数据，今天放在左侧，显示今天+未来14天
@@ -4332,7 +4308,6 @@ class HomeViewModel @Inject constructor(
             }
         }
     }
-
     /**
      * 获取指定分类指定小时的应用详情
      * @param categoryId 分类ID
@@ -4480,72 +4455,70 @@ class HomeViewModel @Inject constructor(
                         }
                     }
                     
-                    if (otherCategoryUsage.isNotEmpty()) {
-                        // 创建一个特殊的提示项目
-                        val allCategories = categoryDao.getAllCategoriesList()
-                        val suggestionText = otherCategoryUsage.map { (catId, apps) ->
-                            val otherCategoryName = allCategories.find { it.id == catId }?.name ?: "未知分类"
-                            val uniqueApps = apps.distinct()
-                            "${otherCategoryName}分类(${uniqueApps.size}个应用)"
-                        }.joinToString("、")
+                    // 创建一个特殊的提示项目
+                    val allCategories = categoryDao.getAllCategoriesList()
+                    val suggestionText = otherCategoryUsage.map { (catId, apps) ->
+                        val otherCategoryName = allCategories.find { it.id == catId }?.name ?: "未知分类"
+                        val uniqueApps = apps.distinct()
+                        "${otherCategoryName}分类(${uniqueApps.size}个应用)"
+                    }.joinToString("、")
+                    
+                    // 检查是否有OffTimes应用的记录
+                    val offTimesRecords = hourlyAllAppSessions.filter { it.pkgName == "com.offtime.app" }
+                    val hasOffTimesRecord = offTimesRecords.isNotEmpty()
+                    
+                    val tipList = mutableListOf<AppDetailItem>()
+                    
+                    if (hasOffTimesRecord) {
+                        val offTimesCategory = allCategories.find { it.id == offTimesRecords.first().catId }?.name ?: "未知分类"
+                        val offTimesTotalTime = offTimesRecords.sumOf { it.durationSec }
                         
-                        // 检查是否有OffTimes应用的记录
-                        val offTimesRecords = hourlyAllAppSessions.filter { it.pkgName == "com.offtime.app" }
-                        val hasOffTimesRecord = offTimesRecords.isNotEmpty()
+                        tipList.add(AppDetailItem(
+                            packageName = "suggestion_tip",
+                            appName = "💡 检测到您在该时段主要使用了OffTimes应用",
+                            categoryId = categoryId,
+                            categoryName = categoryName,
+                            totalUsageSeconds = 0,
+                            realUsageSeconds = 0,
+                            virtualUsageSeconds = 0,
+                            usagePercentage = 0f
+                        ))
                         
-                        val tipList = mutableListOf<AppDetailItem>()
+                        tipList.add(AppDetailItem(
+                            packageName = "suggestion_detail",
+                            appName = "OffTimes被分类到了\"${offTimesCategory}\"，使用了${formatDuration(offTimesTotalTime)}",
+                            categoryId = categoryId,
+                            categoryName = categoryName,
+                            totalUsageSeconds = 0,
+                            realUsageSeconds = 0,
+                            virtualUsageSeconds = 0,
+                            usagePercentage = 0f
+                        ))
+                    } else {
+                        tipList.add(AppDetailItem(
+                            packageName = "suggestion_tip",
+                            appName = "💡 该时段您主要使用了其他分类的应用",
+                            categoryId = categoryId,
+                            categoryName = categoryName,
+                            totalUsageSeconds = 0,
+                            realUsageSeconds = 0,
+                            virtualUsageSeconds = 0,
+                            usagePercentage = 0f
+                        ))
                         
-                        if (hasOffTimesRecord) {
-                            val offTimesCategory = allCategories.find { it.id == offTimesRecords.first().catId }?.name ?: "未知分类"
-                            val offTimesTotalTime = offTimesRecords.sumOf { it.durationSec }
-                            
-                            tipList.add(AppDetailItem(
-                                packageName = "suggestion_tip",
-                                appName = "💡 检测到您在该时段主要使用了OffTimes应用",
-                                categoryId = categoryId,
-                                categoryName = categoryName,
-                                totalUsageSeconds = 0,
-                                realUsageSeconds = 0,
-                                virtualUsageSeconds = 0,
-                                usagePercentage = 0f
-                            ))
-                            
-                            tipList.add(AppDetailItem(
-                                packageName = "suggestion_detail",
-                                appName = "OffTimes被分类到了\"${offTimesCategory}\"，使用了${formatDuration(offTimesTotalTime)}",
-                                categoryId = categoryId,
-                                categoryName = categoryName,
-                                totalUsageSeconds = 0,
-                                realUsageSeconds = 0,
-                                virtualUsageSeconds = 0,
-                                usagePercentage = 0f
-                            ))
-                        } else {
-                            tipList.add(AppDetailItem(
-                                packageName = "suggestion_tip",
-                                appName = "💡 该时段您主要使用了其他分类的应用",
-                                categoryId = categoryId,
-                                categoryName = categoryName,
-                                totalUsageSeconds = 0,
-                                realUsageSeconds = 0,
-                                virtualUsageSeconds = 0,
-                                usagePercentage = 0f
-                            ))
-                            
-                            tipList.add(AppDetailItem(
-                                packageName = "suggestion_detail",
-                                appName = "建议查看: $suggestionText",
-                                categoryId = categoryId,
-                                categoryName = categoryName,
-                                totalUsageSeconds = 0,
-                                realUsageSeconds = 0,
-                                virtualUsageSeconds = 0,
-                                usagePercentage = 0f
-                            ))
-                        }
-                        
-                        return tipList
+                        tipList.add(AppDetailItem(
+                            packageName = "suggestion_detail",
+                            appName = "建议查看: $suggestionText",
+                            categoryId = categoryId,
+                            categoryName = categoryName,
+                            totalUsageSeconds = 0,
+                            realUsageSeconds = 0,
+                            virtualUsageSeconds = 0,
+                            usagePercentage = 0f
+                        ))
                     }
+                    
+                    return tipList
                 }
                 
                 // 如果确实没有任何使用记录，返回空列表
@@ -5106,7 +5079,6 @@ class HomeViewModel @Inject constructor(
             }
         }
     }
-    
     /**
      * 开始UI更新循环（仅用于界面显示，实际计时由服务负责）
      */

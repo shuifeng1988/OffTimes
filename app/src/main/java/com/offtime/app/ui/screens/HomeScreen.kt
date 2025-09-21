@@ -123,7 +123,7 @@ fun HomeScreen(
     val swipeRefreshState = rememberSwipeRefreshState(isRefreshing)
     
     // 订阅状态
-    var subscriptionInfo by remember { mutableStateOf<UserRepository.SubscriptionInfo?>(null) }
+    var subscriptionInfo by remember { mutableStateOf<SubscriptionManager.SubscriptionInfo?>(null) }
     
     // 加载订阅状态
     LaunchedEffect(Unit) {
@@ -166,7 +166,8 @@ fun HomeScreen(
         ) {
             // ========== 第零区域：试用状态显示 ==========
             subscriptionInfo?.let { info ->
-                if (!info.isPremium) {
+                val isTrialExpired = !info.isInTrial && !info.isPremium
+                if (isTrialExpired) {
                     item {
                         TrialStatusBanner(
                             subscriptionInfo = info,
@@ -860,15 +861,17 @@ private fun formatTime(seconds: Int): String {
 
 @Composable
 fun TrialStatusBanner(
-    subscriptionInfo: UserRepository.SubscriptionInfo,
+    subscriptionInfo: SubscriptionManager.SubscriptionInfo,
     onUpgradeClick: () -> Unit
 ) {
+    val isTrialExpired = !subscriptionInfo.isInTrial && !subscriptionInfo.isPremium
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 4.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (subscriptionInfo.isTrialExpired) {
+            containerColor = if (isTrialExpired) {
                 MaterialTheme.colorScheme.errorContainer
             } else {
                 MaterialTheme.colorScheme.secondaryContainer
@@ -892,7 +895,7 @@ fun TrialStatusBanner(
                     imageVector = Icons.Default.Star,
                     contentDescription = null,
                     modifier = Modifier.size(24.dp),
-                    tint = if (subscriptionInfo.isTrialExpired) {
+                    tint = if (isTrialExpired) {
                         MaterialTheme.colorScheme.error
                     } else {
                         MaterialTheme.colorScheme.secondary
@@ -903,29 +906,29 @@ fun TrialStatusBanner(
                 
                 Column {
                     Text(
-                        text = if (subscriptionInfo.isTrialExpired) 
+                        text = if (isTrialExpired) 
                             stringResource(R.string.trial_expired) 
                         else 
                             stringResource(R.string.trial_active),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (subscriptionInfo.isTrialExpired) {
+                        color = if (isTrialExpired) {
                             MaterialTheme.colorScheme.error
                         } else {
                             MaterialTheme.colorScheme.secondary
                         }
                     )
                     
-                    val statusText = if (subscriptionInfo.isTrialExpired) {
+                    val statusText = if (isTrialExpired) {
                         stringResource(R.string.trial_expired_subtitle)
                     } else {
-                        stringResource(R.string.trial_remaining_days, subscriptionInfo.remainingTrialDays)
+                        stringResource(R.string.trial_remaining_days, subscriptionInfo.trialDaysRemaining)
                     }
                     
                     Text(
                         text = statusText,
                         fontSize = 12.sp,
-                        color = if (subscriptionInfo.isTrialExpired) {
+                        color = if (isTrialExpired) {
                             MaterialTheme.colorScheme.onErrorContainer
                         } else {
                             MaterialTheme.colorScheme.onSecondaryContainer
@@ -943,7 +946,7 @@ fun TrialStatusBanner(
                 modifier = Modifier.height(36.dp)
             ) {
                 Text(
-                    text = if (subscriptionInfo.isTrialExpired) {
+                    text = if (isTrialExpired) {
                         stringResource(R.string.upgrade_now)
                     } else {
                         val currencySymbol = if (BuildConfig.ENABLE_GOOGLE_PAY) "$" else "¥"
