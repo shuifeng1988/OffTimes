@@ -233,20 +233,17 @@ class UnifiedUpdateService : Service() {
     /**
      * 快速更新活跃应用
      * 只更新当前活跃应用的使用时长，不执行完整的数据聚合
+     * 🔥 优化：直接调用实时拉取，减少延迟
      */
     private suspend fun performQuickActiveAppsUpdate() {
         try {
             Log.d(TAG, "执行快速活跃应用更新")
             
-            // 1. 先拉取最新的使用事件
-            UsageStatsCollectorService.triggerEventsPull(this)
-            delay(300)  // 等待事件处理完成
-            
-            // 2. 触发活跃应用更新
+            // 🔥 直接触发活跃应用更新（内部已包含实时事件拉取）
             UsageStatsCollectorService.triggerActiveAppsUpdate(this)
-            delay(200)
+            delay(100)  // 缩短等待时间
             
-            // 3. 通知UI更新（使用快速更新类型）
+            // 通知UI更新（使用快速更新类型）
             dataUpdateManager.notifyDataUpdated("QUICK_UPDATE")
             
             Log.d(TAG, "快速活跃应用更新完成")

@@ -293,6 +293,10 @@ class UsageStatsCollectorService : Service() {
         try {
             val currentTime = System.currentTimeMillis()
             
+            // 🔥 关键优化：无论前台后台都主动拉取最新事件，确保实时统计准确
+            Log.d(TAG, "🔄 主动拉取最新事件确保实时统计准确 (前台=${AppLifecycleObserver.isActivityInForeground.value})")
+            pullLatestEventsForRealtime()
+            
             // 使用新的状态机变量
             if (currentForegroundPackage != null && currentSessionStartTime != null) {
                 val packageName = currentForegroundPackage!!
@@ -365,6 +369,34 @@ class UsageStatsCollectorService : Service() {
             
         } catch (e: Exception) {
             Log.e(TAG, "实时统计更新失败", e)
+        }
+    }
+    
+    /**
+     * 实时拉取最新事件（轻量级，用于实时统计纠偏）
+     * 无论前台后台都会拉取，确保应用切换能及时检测到
+     */
+    private suspend fun pullLatestEventsForRealtime() {
+        try {
+            val currentTime = System.currentTimeMillis()
+            val lookbackTime = currentTime - (3 * 60 * 1000) // 回看3分钟，缩短范围提高性能
+            val lastProcessedTime = maxOf(lookbackTime, lastEventTs)
+            
+            // 缩短重复拉取间隔，提高检测灵敏度
+            if (currentTime - lastProcessedTime < 5000) { // 5秒内不重复拉取
+                return
+            }
+            
+            Log.d(TAG, "🔄 实时事件拉取: ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(lastProcessedTime)} - ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(currentTime)}")
+            
+            val newLastTs = processUsageEvents(lastProcessedTime, currentTime)
+            if (newLastTs > lastEventTs) {
+                lastEventTs = newLastTs
+                Log.d(TAG, "🔄 实时事件拉取完成，更新时间戳至: $newLastTs")
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "实时事件拉取失败", e)
         }
     }
     
@@ -505,37 +537,19 @@ class UsageStatsCollectorService : Service() {
                     continue
                 }
                 
-                // 特殊处理OffTimes：只过滤后台事件，保留真正的前台使用
+                // 🔥 关键过滤：OffTimes后台事件一律过滤，只保留真正的前台使用
                 if (eventPackageName.startsWith("com.offtime.app")) {
                     // 如果一个事件声称OffTimes到了前台...
                     // 注意：必须包含所有可能触发前台的事件类型：ACTIVITY_RESUMED(1), FOREGROUND_SERVICE_START(19)
                     if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED || event.eventType == 1 || event.eventType == 19) {
-                        // 关键策略：默认过滤，除非明确证明是用户主动打开
-                        var shouldFilter = true
                         
-                        // 只有当OffTimes的UI真正在前台时，才不过滤
-                        if (AppLifecycleObserver.isActivityInForeground.value) {
-                            shouldFilter = false
-                            Log.d(TAG, "✅ OffTimes UI在前台，保留事件")
-                        } else {
-                            // UI不在前台，检查是否有其他应用正在运行
-                            if (currentForegroundPackage != null && 
-                                !currentForegroundPackage!!.startsWith("com.offtime.app")) {
-                                Log.d(TAG, "🚫 过滤OffTimes后台任务: 当前活跃应用是 $currentForegroundPackage，OffTimes UI不在前台")
-                                continue
-                            }
-                            
-                            // 即使没有其他应用，也要确认这不是后台任务
-                            val actualForegroundApp = getForegroundApp()
-                            if (actualForegroundApp != null && !actualForegroundApp.startsWith("com.offtime.app")) {
-                                Log.d(TAG, "🚫 过滤OffTimes后台任务: 实际前台是 $actualForegroundApp")
-                                continue
-                            }
-                            
-                            // 如果getForegroundApp返回null或OffTimes，但UI不在前台，仍然过滤
-                            Log.d(TAG, "🚫 过滤OffTimes事件: UI不在前台，疑似后台任务")
+                        // 🔥 严格过滤：只有当OffTimes的UI真正在前台时，才保留事件
+                        if (!AppLifecycleObserver.isActivityInForeground.value) {
+                            Log.d(TAG, "🚫 过滤OffTimes后台任务: UI不在前台，忽略启动事件")
                             continue
                         }
+                        
+                        Log.d(TAG, "✅ OffTimes UI在前台，保留事件")
                     }
                 }
                 
@@ -576,8 +590,17 @@ class UsageStatsCollectorService : Service() {
                         if (currentForegroundPackage != eventPackageName) {
                             Log.d(TAG, "▶️ 应用启动: ${eventPackageName} at $eventTimeStr")
                             currentForegroundPackage = eventPackageName
-                            // 起点以这次前台事件为准，避免把先前Chrome的时间带入
-                            currentSessionStartTime = event.timeStamp
+                            
+                            // 🔥 关键修复：OffTimes的会话起点使用实际切换时间，不是进程启动时间
+                            if (eventPackageName.startsWith("com.offtime.app")) {
+                                // OffTimes能到达这里说明UI已在前台，使用当前时间作为会话起点（用户实际切换时间）
+                                val actualSwitchTime = System.currentTimeMillis()
+                                currentSessionStartTime = actualSwitchTime
+                                Log.d(TAG, "🔧 OffTimes会话起点修正: 使用实际切换时间 ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(actualSwitchTime)} 而非进程启动时间 $eventTimeStr")
+                            } else {
+                                // 其他应用使用事件时间
+                                currentSessionStartTime = event.timeStamp
+                            }
                             lastForegroundSwitchTs = event.timeStamp
                         }
                     }
@@ -898,6 +921,9 @@ class UsageStatsCollectorService : Service() {
 
     // 最近一次前台应用切换的时间戳（用于矫正实时统计的会话起点）
     private var lastForegroundSwitchTs: Long = 0L
+    
+    // 最后处理的事件时间戳（用于实时拉取避免重复）
+    private var lastEventTs: Long = 0L
 
     private fun isLauncherApp(packageName: String?): Boolean {
         if (packageName == null) return false
