@@ -11,12 +11,8 @@ import javax.inject.Singleton
 import com.offtime.app.manager.interfaces.PaymentManager
 import com.offtime.app.manager.interfaces.PaymentResult
 import com.offtime.app.manager.interfaces.PaymentProduct
-import com.offtime.app.data.repository.UserRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.launch
 import kotlin.coroutines.resume
 
 /**
@@ -25,8 +21,7 @@ import kotlin.coroutines.resume
  */
 @Singleton
 class GooglePlayBillingManager @Inject constructor(
-    private val context: Context,
-    private val userRepository: UserRepository
+    private val context: Context
 ) : PaymentManager, PurchasesUpdatedListener, BillingClientStateListener {
     
     companion object {
@@ -203,22 +198,15 @@ class GooglePlayBillingManager @Inject constructor(
     
     private fun handlePurchase(purchase: Purchase) {
         if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
-            // 购买成功
-            Log.d(TAG, "✅ 购买成功: ${purchase.products}")
-
-            // 确认购买
+            // 购买成功，需要确认购买（对于订阅商品）
             if (!purchase.isAcknowledged) {
                 acknowledgePurchase(purchase)
-            } else {
-                // 如果已经确认，直接处理用户升级
-                CoroutineScope(Dispatchers.IO).launch {
-                    userRepository.upgradeToPremium()
-                }
             }
-
+            
+            Log.d(TAG, "购买成功: ${purchase.products}")
             purchaseCallback?.invoke(PurchaseResult(true, "购买成功", purchase))
         } else if (purchase.purchaseState == Purchase.PurchaseState.PENDING) {
-            Log.d(TAG, "⏳ 购买待确认: ${purchase.products}")
+            Log.d(TAG, "购买待确认: ${purchase.products}")
             purchaseCallback?.invoke(PurchaseResult(false, "购买待确认", purchase))
         }
     }
@@ -230,13 +218,9 @@ class GooglePlayBillingManager @Inject constructor(
         
         billingClient?.acknowledgePurchase(acknowledgePurchaseParams) { billingResult ->
             if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                Log.d(TAG, "✅ 购买确认成功: ${purchase.products}")
-                // 确认成功后，升级用户为付费会员
-                CoroutineScope(Dispatchers.IO).launch {
-                    userRepository.upgradeToPremium()
-                }
+                Log.d(TAG, "购买确认成功")
             } else {
-                Log.e(TAG, "❌ 购买确认失败: ${billingResult.debugMessage}")
+                Log.e(TAG, "购买确认失败: ${billingResult.debugMessage}")
             }
         }
     }

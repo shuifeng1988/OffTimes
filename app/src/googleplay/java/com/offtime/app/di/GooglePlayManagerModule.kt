@@ -20,23 +20,15 @@ abstract class GooglePlayManagerModule {
     @Named("google")
     abstract fun bindGoogleLoginManager(googleLoginManager: GoogleLoginManager): LoginManager
     
-    // PaymentManager is now a concrete class, so we provide it directly.
+    @Binds
+    @Named("google")
+    abstract fun bindGooglePaymentManager(googlePlayBillingManager: GooglePlayBillingManager): PaymentManager
 }
 
 @Module
 @InstallIn(SingletonComponent::class)
 object GooglePlayManagerProvides {
     
-    @Provides
-    @Named("google")
-    @Singleton
-    fun provideGooglePaymentManager(
-        context: android.content.Context, 
-        userRepository: com.offtime.app.data.repository.UserRepository
-    ): PaymentManager {
-        return GooglePlayBillingManager(context, userRepository)
-    }
-
     @Provides
     @Named("alipay")
     @Singleton
