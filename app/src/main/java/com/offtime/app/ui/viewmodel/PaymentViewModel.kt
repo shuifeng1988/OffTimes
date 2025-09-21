@@ -257,7 +257,6 @@ class PaymentViewModel @Inject constructor(
                         )
                     }
                 )
-                return
             }
             
             // 实际的Google Play Billing逻辑
