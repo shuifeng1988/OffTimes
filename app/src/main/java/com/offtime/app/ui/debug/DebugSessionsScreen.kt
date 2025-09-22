@@ -98,15 +98,17 @@ fun DebugSessionsScreen(
                         }
                     }
                     
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     Button(
-                        onClick = { viewModel.cleanDuplicateRecords() },
+                        onClick = { viewModel.cleanDuplicateSessions() },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !isLoading,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFF5722)
-                        )
+                        colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFFFFA500)) // Orange color
                     ) {
-                        Text("🧹 清理重复记录")
+                        Icon(Icons.Default.CleaningServices, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("清理重复记录")
                     }
                 }
                 

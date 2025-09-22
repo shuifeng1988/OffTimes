@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.offtime.app.service.UsageStatsCollectorService
+import com.offtime.app.service.DataAggregationService
 
 @HiltViewModel
 class DebugSessionsViewModel @Inject constructor(
@@ -93,6 +94,22 @@ class DebugSessionsViewModel @Inject constructor(
                 
             } catch (e: Exception) {
                 android.util.Log.e("DebugSessionsViewModel", "清理重复记录失败", e)
+            }
+        }
+    }
+
+    fun cleanDuplicateSessions() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                DataAggregationService.cleanDuplicateSessions(context)
+                // 清理是异步的，这里可以稍微延迟一下再刷新
+                kotlinx.coroutines.delay(2000)
+                loadSessions()
+            } catch (e: Exception) {
+                // Handle error
+            } finally {
+                _isLoading.value = false
             }
         }
     }

@@ -67,6 +67,7 @@ class DataAggregationService : Service() {
         const val ACTION_ENSURE_BASE_RECORDS = "com.offtime.app.ENSURE_BASE_RECORDS"
         const val ACTION_CLEAN_HISTORICAL_DATA = "com.offtime.app.CLEAN_HISTORICAL_DATA"
         const val ACTION_PROCESS_HISTORICAL_DATA = "com.offtime.app.PROCESS_HISTORICAL_DATA"
+        const val ACTION_CLEAN_DUPLICATE_SESSIONS = "com.offtime.app.CLEAN_DUPLICATE_SESSIONS"
         private const val TAG = "DataAggregationService"
         
         /**
@@ -140,6 +141,25 @@ class DataAggregationService : Service() {
                 android.util.Log.e(TAG, "启动历史数据清理服务失败", e)
             }
         }
+
+        /**
+         * 手动触发清理重复会话记录
+         */
+        fun cleanDuplicateSessions(context: android.content.Context) {
+            val intent = android.content.Intent(context, DataAggregationService::class.java)
+            intent.action = ACTION_CLEAN_DUPLICATE_SESSIONS
+            
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+                LogUtils.i(TAG, "手动触发清理重复会话记录服务")
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "启动清理重复会话记录服务失败", e)
+            }
+        }
     }
     
     // === 数据访问层依赖注入 ===
@@ -182,6 +202,8 @@ class DataAggregationService : Service() {
      * 1. ACTION_AGGREGATE_DATA: 完整的数据聚合流程
      * 2. ACTION_ENSURE_BASE_RECORDS: 仅确保基础记录存在
      * 3. ACTION_CLEAN_HISTORICAL_DATA: 清理历史错误数据并重新聚合
+     * 4. ACTION_PROCESS_HISTORICAL_DATA: 单独处理历史未聚合数据
+     * 5. ACTION_CLEAN_DUPLICATE_SESSIONS: 清理重复会话记录
      */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
@@ -209,6 +231,14 @@ class DataAggregationService : Service() {
                     LogUtils.i(TAG, "🔧 单独处理历史未聚合数据")
                     processHistoricalUnprocessedData()
                     stopSelf(startId)  // 完成后自动停止服务
+                }
+            }
+            ACTION_CLEAN_DUPLICATE_SESSIONS -> {
+                serviceScope.launch {
+                    cleanDuplicateAppSessions()
+                    // 清理后，自动触发一次完整聚合来刷新数据
+                    aggregateData()
+                    stopSelf(startId)
                 }
             }
         }
@@ -404,7 +434,8 @@ class DataAggregationService : Service() {
                 
                 // 2. 生成历史基础记录（过去30天）
                 // 目的：确保统计图表有足够的历史数据点
-                ensureHistoricalBaseSummaryRecords(date, categories)
+                // ⚠️ 警告：该功能存在缺陷，可能导致数据不一致，暂时禁用
+                // ensureHistoricalBaseSummaryRecords(date, categories)
                 
                 // 3. 确保每周基础记录存在（仅在周一执行）
                 if (isStartOfWeek(date)) {
@@ -1596,6 +1627,60 @@ class DataAggregationService : Service() {
                 
             } catch (e: Exception) {
                 Log.e(TAG, "清理历史错误数据失败", e)
+            }
+        }
+    }
+
+    /**
+     * 清理 app_sessions_user 表中的重复记录
+     * - 重复定义：pkgName, startTime, endTime, durationSec 均相同
+     * - 保留策略：保留id最小的记录
+     */
+    private suspend fun cleanDuplicateAppSessions() {
+        withContext(Dispatchers.IO) {
+            Log.i(TAG, "开始清理重复的App会话记录...")
+            try {
+                val allSessions = appSessionDao.getAllSessions()
+                if (allSessions.isEmpty()) {
+                    Log.i(TAG, "没有会话记录可供清理")
+                    return@withContext
+                }
+
+                val sessionsToKeep = mutableSetOf<Int>()
+                val sessionsToDelete = mutableListOf<Int>()
+                
+                // 按会话特征分组，找出重复项
+                val groupedSessions = allSessions.groupBy { 
+                    "${it.pkgName}_${it.startTime}_${it.endTime}_${it.durationSec}"
+                }
+
+                groupedSessions.forEach { (_, sessions) ->
+                    if (sessions.size > 1) {
+                        // 如果存在重复，找出ID最小的那个保留
+                        val sessionToKeep = sessions.minByOrNull { it.id }
+                        if (sessionToKeep != null) {
+                            sessionsToKeep.add(sessionToKeep.id)
+                            // 将其他所有重复项加入删除列表
+                            sessions.forEach { session ->
+                                if (session.id != sessionToKeep.id) {
+                                    sessionsToDelete.add(session.id)
+                                }
+                            }
+                            Log.w(TAG, "发现 ${sessions.size - 1} 个重复会话 for ${sessionToKeep.pkgName}. 保留 ID: ${sessionToKeep.id}, 待删除 IDs: ${sessions.filter { it.id != sessionToKeep.id }.map { it.id }}")
+                        }
+                    }
+                }
+
+                if (sessionsToDelete.isNotEmpty()) {
+                    // 批量删除重复记录
+                    appSessionDao.deleteSessionsByIds(sessionsToDelete)
+                    Log.i(TAG, "成功删除了 ${sessionsToDelete.size} 条重复的会话记录。")
+                } else {
+                    Log.i(TAG, "未发现需要清理的重复会话记录。")
+                }
+
+            } catch (e: Exception) {
+                Log.e(TAG, "清理重复会话记录时发生错误", e)
             }
         }
     }
