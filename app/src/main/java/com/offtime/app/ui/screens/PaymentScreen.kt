@@ -248,7 +248,7 @@ fun PaymentSection(
                     verticalAlignment = Alignment.Bottom
                 ) {
                     Text(
-                        text = "￥",
+                        text = PaymentViewModel.PREMIUM_CURRENCY_SYMBOL,
                         fontSize = 20.sp,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -352,8 +352,9 @@ fun PaymentSection(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = stringResource(R.string.payment_select_method) + " " + getPaymentMethodDisplayName(selectedPaymentMethod) + " " + 
-                            (if (BuildConfig.ENABLE_GOOGLE_PAY) PaymentViewModel.PREMIUM_CURRENCY_SYMBOL else "¥") + 
+                        text = stringResource(R.string.payment_select_method) + " " + 
+                            getPaymentMethodDisplayName(selectedPaymentMethod) + " " + 
+                            PaymentViewModel.PREMIUM_CURRENCY_SYMBOL + 
                             PaymentViewModel.PREMIUM_PRICE_DISPLAY,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
