@@ -9,6 +9,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -103,10 +105,9 @@ fun DebugSessionsScreen(
                     Button(
                         onClick = { viewModel.cleanDuplicateSessions() },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !isLoading,
-                        colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFFFFA500)) // Orange color
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA500)) // Orange color
                     ) {
-                        Icon(Icons.Default.CleaningServices, contentDescription = null)
+                        Icon(Icons.Default.DeleteSweep, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
                         Text("清理重复记录")
                     }

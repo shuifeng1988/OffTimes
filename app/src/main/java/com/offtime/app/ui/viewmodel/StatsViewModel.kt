@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -203,8 +205,10 @@ class StatsViewModel @Inject constructor(
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
     
     init {
-        // 加载所有统计数据
-        loadUsageData()
+        // 使用Flow的响应式方式加载数据
+        observeUsageData()
+
+        // 其他模块的加载保持不变
         loadGoalCompletionData()
         loadRewardPunishmentData()
         loadAppUsageChangeData()
@@ -219,6 +223,153 @@ class StatsViewModel @Inject constructor(
         
         // 原有的初始化逻辑保持不变
         loadRewardPunishmentSummary()
+    }
+    
+    /**
+     * [新] 使用Flow的响应式方式加载和监听使用数据
+     */
+    private fun observeUsageData() {
+        viewModelScope.launch {
+            // 当period或categories变化时，重新触发数据加载
+            combine(
+                usageStatsPeriod,
+                appCategoryDao.getAllCategories()
+            ) { period, categories ->
+                Pair(period, categories)
+            }.flatMapLatest { (period, categories) ->
+                _isUsageStatsLoading.value = true
+                loadCategoryUsageDataFlow(period, categories)
+            }.collect { usageDataList ->
+                _categoryUsageData.value = usageDataList.sortedByDescending { it.usageMinutes }
+                _isUsageStatsLoading.value = false
+                android.util.Log.d(TAG, "使用数据UI已更新: ${usageDataList.size}个分类")
+            }
+        }
+    }
+
+    private fun loadCategoryUsageDataFlow(period: String, categories: List<AppCategoryEntity>): kotlinx.coroutines.flow.Flow<List<CategoryUsageData>> {
+        // 监听整个summary表的变化
+        return summaryUsageDao.getAllSummaryUsageUserFlow().map { allSummaryData ->
+            android.util.Log.d(TAG, "数据库变化，重新计算使用数据: period=$period, summary records=${allSummaryData.size}")
+            
+            val usageDataList = mutableListOf<CategoryUsageData>()
+            
+            for (category in categories) {
+                // 在内存中直接从 allSummaryData 计算，避免多次查询数据库
+                val usageMinutes = when (period) {
+                    "今日" -> calculateTodayUsage(category.id, category.name, allSummaryData, categories)
+                    "昨日" -> calculateYesterdayUsage(category.id, category.name, allSummaryData, categories)
+                    "本周" -> calculateThisWeekUsage(category.id, category.name, allSummaryData, categories)
+                    "本月" -> calculateThisMonthUsage(category.id, category.name, allSummaryData, categories)
+                    "总共" -> calculateTotalUsage(category.id, category.name, allSummaryData, categories) // 仍然需要查询原始表
+                    else -> 0
+                }
+                
+                val categoryStyle = com.offtime.app.utils.CategoryUtils.getCategoryStyle(category.name)
+                
+                usageDataList.add(
+                    CategoryUsageData(
+                        category = category,
+                        usageMinutes = usageMinutes,
+                        emoji = categoryStyle.emoji,
+                        color = categoryStyle.color
+                    )
+                )
+            }
+            usageDataList
+        }
+    }
+    
+    // 以下是将原有的挂起函数改造为在内存中计算的普通函数
+    
+    private fun calculateTodayUsage(categoryId: Int, categoryName: String, allSummaryData: List<SummaryUsageUserEntity>, allCategories: List<AppCategoryEntity>): Int {
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        return calculateUsageForDate(categoryId, categoryName, today, allSummaryData, allCategories)
+    }
+
+    private fun calculateYesterdayUsage(categoryId: Int, categoryName: String, allSummaryData: List<SummaryUsageUserEntity>, allCategories: List<AppCategoryEntity>): Int {
+        val calendar = Calendar.getInstance()
+        calendar.add(Calendar.DAY_OF_YEAR, -1)
+        val yesterday = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(calendar.time)
+        return calculateUsageForDate(categoryId, categoryName, yesterday, allSummaryData, allCategories)
+    }
+    
+    private fun calculateUsageForDate(categoryId: Int, categoryName: String, date: String, allSummaryData: List<SummaryUsageUserEntity>, allCategories: List<AppCategoryEntity>): Int {
+        return if (categoryName == "总使用") {
+            val validCategories = allCategories.filter { it.id != categoryId && it.name != "总使用" && !it.name.contains("排除统计") }
+            var totalSeconds = 0L
+            validCategories.forEach { category ->
+                val summaryRecord = allSummaryData.find { it.date == date && it.catId == category.id }
+                totalSeconds += summaryRecord?.totalSec?.toLong() ?: 0L
+            }
+            (totalSeconds / 60).toInt()
+        } else {
+            val summaryRecord = allSummaryData.find { it.date == date && it.catId == categoryId }
+            summaryRecord?.totalSec?.div(60) ?: 0
+        }
+    }
+
+    private fun calculateThisWeekUsage(categoryId: Int, categoryName: String, allSummaryData: List<SummaryUsageUserEntity>, allCategories: List<AppCategoryEntity>): Int {
+        val calendar = Calendar.getInstance()
+        var totalSeconds = 0L
+        val currentDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+        val daysToCalculate = if (currentDayOfWeek == Calendar.SUNDAY) 7 else currentDayOfWeek - 1
+        
+        calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+        
+        val validCategories = if (categoryName == "总使用") {
+            allCategories.filter { it.id != categoryId && it.name != "总使用" && !it.name.contains("排除统计") }
+        } else {
+            null
+        }
+
+        for (i in 0 until daysToCalculate) {
+            val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(calendar.time)
+            if (validCategories != null) {
+                validCategories.forEach { category ->
+                    val summaryRecord = allSummaryData.find { it.date == date && it.catId == category.id }
+                    totalSeconds += summaryRecord?.totalSec?.toLong() ?: 0L
+                }
+            } else {
+                val summaryRecord = allSummaryData.find { it.date == date && it.catId == categoryId }
+                totalSeconds += summaryRecord?.totalSec?.toLong() ?: 0L
+            }
+            calendar.add(Calendar.DAY_OF_YEAR, 1)
+        }
+        return (totalSeconds / 60).toInt()
+    }
+
+    private fun calculateThisMonthUsage(categoryId: Int, categoryName: String, allSummaryData: List<SummaryUsageUserEntity>, allCategories: List<AppCategoryEntity>): Int {
+        val calendar = Calendar.getInstance()
+        var totalSeconds = 0L
+        val daysInMonth = calendar.get(Calendar.DAY_OF_MONTH)
+        calendar.set(Calendar.DAY_OF_MONTH, 1)
+
+        val validCategories = if (categoryName == "总使用") {
+            allCategories.filter { it.id != categoryId && it.name != "总使用" && !it.name.contains("排除统计") }
+        } else {
+            null
+        }
+
+        for (i in 0 until daysInMonth) {
+            val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(calendar.time)
+            if (validCategories != null) {
+                validCategories.forEach { category ->
+                    val summaryRecord = allSummaryData.find { it.date == date && it.catId == category.id }
+                    totalSeconds += summaryRecord?.totalSec?.toLong() ?: 0L
+                }
+            } else {
+                val summaryRecord = allSummaryData.find { it.date == date && it.catId == categoryId }
+                totalSeconds += summaryRecord?.totalSec?.toLong() ?: 0L
+            }
+            calendar.add(Calendar.DAY_OF_YEAR, 1)
+        }
+        return (totalSeconds / 60).toInt()
+    }
+    
+    private suspend fun calculateTotalUsage(categoryId: Int, categoryName: String, allSummaryData: List<SummaryUsageUserEntity>, allCategories: List<AppCategoryEntity>): Int {
+         // 总使用量仍然需要直接查询原始表以确保准确性
+        return getTotalUsageOptimized(categoryId, categoryName)
     }
     
     /**
@@ -311,7 +462,8 @@ class StatsViewModel @Inject constructor(
                 kotlinx.coroutines.delay(3000)
                 
                 // 刷新所有统计数据
-                loadUsageData()
+                // observeUsageData会自动处理，无需手动调用
+                // loadUsageData() 
                 loadGoalCompletionData()
                 loadRewardPunishmentData()
                 loadAppUsageChangeData()

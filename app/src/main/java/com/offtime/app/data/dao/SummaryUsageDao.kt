@@ -4,6 +4,7 @@ import androidx.room.*
 import com.offtime.app.data.entity.SummaryUsageUserEntity
 import com.offtime.app.data.entity.SummaryUsageWeekUserEntity
 import com.offtime.app.data.entity.SummaryUsageMonthUserEntity
+import kotlinx.coroutines.flow.Flow
 
 data class UsageData(
     val period: String,  // 日期、周、月
@@ -115,6 +116,9 @@ interface SummaryUsageDao {
     
     @Query("SELECT * FROM summary_usage_month_user ORDER BY updateTime DESC")
     suspend fun getAllSummaryUsageMonth(): List<SummaryUsageMonthUserEntity>
+    
+    @Query("SELECT * FROM summary_usage_user")
+    fun getAllSummaryUsageUserFlow(): Flow<List<SummaryUsageUserEntity>>
     
     // 插入或更新汇总表（用于迁移）
     @Insert(onConflict = OnConflictStrategy.REPLACE)

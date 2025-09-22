@@ -21,6 +21,8 @@ import java.util.*
 import com.offtime.app.OffTimeApplication
 import com.offtime.app.utils.DateLocalizer
 import com.offtime.app.utils.LocaleUtils
+import android.content.BroadcastReceiver
+import android.content.ComponentName
 
 /**
  * 锁屏小部件 - 显示默认分类的饼图和日使用时间折线图
@@ -41,6 +43,7 @@ class OffTimeLockScreenWidget : AppWidgetProvider() {
     }
 
     companion object {
+        const val ACTION_UPDATE_WIDGET = "com.offtime.app.widget.ACTION_UPDATE_WIDGET"
         /**
          * 刷新所有Widget实例（当语言设置变更时调用）
          */
@@ -328,6 +331,24 @@ class OffTimeLockScreenWidget : AppWidgetProvider() {
                     } catch (e: Exception) {
                         android.util.Log.e("LockScreenWidget", "分类切换失败", e)
                     }
+                }
+            }
+        }
+    }
+
+    /**
+     * 广播接收器，用于接收外部更新请求
+     */
+    class WidgetUpdateReceiver : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == ACTION_UPDATE_WIDGET) {
+                android.util.Log.d("LockScreenWidget", "接收到Widget更新广播")
+                val appWidgetManager = AppWidgetManager.getInstance(context)
+                val widgetComponent = ComponentName(context, OffTimeLockScreenWidget::class.java)
+                val widgetIds = appWidgetManager.getAppWidgetIds(widgetComponent)
+                
+                if (widgetIds.isNotEmpty()) {
+                    OffTimeLockScreenWidget().onUpdate(context, appWidgetManager, widgetIds)
                 }
             }
         }

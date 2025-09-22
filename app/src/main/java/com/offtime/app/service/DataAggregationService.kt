@@ -34,6 +34,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
+import com.offtime.app.widget.OffTimeLockScreenWidget
 
 /**
  * 数据聚合服务
@@ -312,6 +313,9 @@ class DataAggregationService : Service() {
             aggregateRewardPunishmentMonthly(today)
             
             LogUtils.i(TAG, "数据聚合完成: $today")
+
+            // 🚀 新增：发送广播通知Widget更新
+            notifyWidgetUpdate()
             
         } catch (e: Exception) {
             Log.e(TAG, "数据聚合失败", e)
@@ -1682,6 +1686,22 @@ class DataAggregationService : Service() {
             } catch (e: Exception) {
                 Log.e(TAG, "清理重复会话记录时发生错误", e)
             }
+        }
+    }
+
+    /**
+     * 发送广播以更新所有Widget
+     */
+    private fun notifyWidgetUpdate() {
+        try {
+            Log.i(TAG, "🚀 发送Widget更新广播...")
+            val intent = Intent(this, OffTimeLockScreenWidget.WidgetUpdateReceiver::class.java).apply {
+                action = OffTimeLockScreenWidget.ACTION_UPDATE_WIDGET
+            }
+            sendBroadcast(intent)
+            Log.i(TAG, "✅ Widget更新广播发送成功")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 发送Widget更新广播失败", e)
         }
     }
 } 

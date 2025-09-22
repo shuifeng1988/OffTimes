@@ -1,0 +1,17 @@
+
+        </receiver>
+
+        <receiver
+            android:name=".widget.OffTimeLockScreenWidget$WidgetUpdateReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.offtime.app.widget.ACTION_UPDATE_WIDGET" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".service.UsageStatsCollectorService"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
