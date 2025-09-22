@@ -8,6 +8,7 @@ import com.offtime.app.service.UsageStatsCollectorService
 import com.offtime.app.utils.FirstLaunchManager
 import com.offtime.app.utils.UsageStatsPermissionHelper
 import com.offtime.app.util.DataUpdateEventManager
+import com.offtime.app.BuildConfig
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -80,8 +81,8 @@ class ScreenStateReceiver : BroadcastReceiver() {
      */
     private fun startUsageStatsCollectionIfReady(context: Context, trigger: String, firstLaunchManager: FirstLaunchManager) {
         try {
-            // 检查是否已完成初始化引导
-            if (firstLaunchManager.isFirstLaunch() || !firstLaunchManager.isOnboardingCompleted()) {
+            // 在Release版本中，检查是否已完成初始化引导
+            if (!BuildConfig.DEBUG && (firstLaunchManager.isFirstLaunch() || !firstLaunchManager.isOnboardingCompleted())) {
                 Log.d(TAG, "$trigger: 应用尚未完成初始化，跳过服务启动")
                 return
             }
