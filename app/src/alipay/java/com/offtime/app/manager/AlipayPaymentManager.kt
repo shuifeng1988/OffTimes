@@ -70,7 +70,14 @@ class AlipayPaymentManager @Inject constructor(
         Log.d(TAG, "AlipayPaymentManager initialized, sandbox: $isSandbox")
     }
     
-    override suspend fun pay(productId: String, amount: String): Flow<PaymentResult> = flow {
+    override suspend fun pay(activity: Activity, productId: String): Flow<PaymentResult> = flow {
+        // 在支付宝支付中，productId可能对应服务器上的不同商品
+        // 这里为了简化，我们假设productId映射到固定的价格
+        val amount = when (productId) {
+            "premium_lifetime" -> "9.90"
+            else -> "0.01" // 默认测试金额
+        }
+
         emit(PaymentResult.Loading)
         
         try {
@@ -96,7 +103,7 @@ class AlipayPaymentManager @Inject constructor(
             
         } catch (e: Exception) {
             Log.e(TAG, "Payment failed", e)
-            emit(PaymentResult.Error("支付失败: ${e.message}", e))
+            emit(PaymentResult.Error("支付异常: ${e.message}", e))
         }
     }
     

@@ -20,8 +20,12 @@ import com.offtime.app.data.dao.RewardPunishmentUserDao
 import com.offtime.app.data.dao.GoalRewardPunishmentUserDao
 import com.offtime.app.data.entity.AppCategoryEntity
 import com.offtime.app.data.entity.AppInfoEntity
+import com.offtime.app.data.entity.SummaryUsageUserEntity
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class CategoryUsageData(
     val category: AppCategoryEntity,
@@ -254,27 +258,31 @@ class StatsViewModel @Inject constructor(
             
             val usageDataList = mutableListOf<CategoryUsageData>()
             
-            for (category in categories) {
-                // 在内存中直接从 allSummaryData 计算，避免多次查询数据库
-                val usageMinutes = when (period) {
-                    "今日" -> calculateTodayUsage(category.id, category.name, allSummaryData, categories)
-                    "昨日" -> calculateYesterdayUsage(category.id, category.name, allSummaryData, categories)
-                    "本周" -> calculateThisWeekUsage(category.id, category.name, allSummaryData, categories)
-                    "本月" -> calculateThisMonthUsage(category.id, category.name, allSummaryData, categories)
-                    "总共" -> calculateTotalUsage(category.id, category.name, allSummaryData, categories) // 仍然需要查询原始表
-                    else -> 0
+            // 使用 withContext 切换到后台线程进行计算密集型操作
+            withContext(Dispatchers.Default) {
+                for (category in categories) {
+                    val usageMinutes = when (period) {
+                        "今日" -> calculateTodayUsage(category.id, category.name, allSummaryData, categories)
+                        "昨日" -> calculateYesterdayUsage(category.id, category.name, allSummaryData, categories)
+                        "本周" -> calculateThisWeekUsage(category.id, category.name, allSummaryData, categories)
+                        "本月" -> calculateThisMonthUsage(category.id, category.name, allSummaryData, categories)
+                        "总共" -> calculateTotalUsage(category.id, category.name, allSummaryData, categories)
+                        else -> 0
+                    }
+                    
+                    val categoryStyle = com.offtime.app.utils.CategoryUtils.getCategoryStyle(category.name)
+                    
+                    synchronized(usageDataList) {
+                        usageDataList.add(
+                            CategoryUsageData(
+                                category = category,
+                                usageMinutes = usageMinutes,
+                                emoji = categoryStyle.emoji,
+                                color = categoryStyle.color
+                            )
+                        )
+                    }
                 }
-                
-                val categoryStyle = com.offtime.app.utils.CategoryUtils.getCategoryStyle(category.name)
-                
-                usageDataList.add(
-                    CategoryUsageData(
-                        category = category,
-                        usageMinutes = usageMinutes,
-                        emoji = categoryStyle.emoji,
-                        color = categoryStyle.color
-                    )
-                )
             }
             usageDataList
         }
@@ -369,7 +377,9 @@ class StatsViewModel @Inject constructor(
     
     private suspend fun calculateTotalUsage(categoryId: Int, categoryName: String, allSummaryData: List<SummaryUsageUserEntity>, allCategories: List<AppCategoryEntity>): Int {
          // 总使用量仍然需要直接查询原始表以确保准确性
-        return getTotalUsageOptimized(categoryId, categoryName)
+        return withContext(Dispatchers.IO) {
+            getTotalUsageOptimized(categoryId, categoryName)
+        }
     }
     
     /**

@@ -38,20 +38,32 @@ class GooglePlayBillingManager @Inject constructor(
     private var isServiceConnected = false
     private var purchaseCallback: ((PurchaseResult) -> Unit)? = null
     
-    override suspend fun pay(productId: String, amount: String): Flow<PaymentResult> = flow {
+    override suspend fun pay(activity: Activity, productId: String): Flow<PaymentResult> = flow {
         emit(PaymentResult.Loading)
+        if (!isServiceConnected) {
+            emit(PaymentResult.Error("Billing service not connected"))
+            return@flow
+        }
+        
         try {
-            // Google Play计费实现
-            val products = getAvailableProducts()
-            val product = products.find { it.productId == productId }
-            if (product != null) {
-                // 实际支付逻辑会通过Activity回调处理
-                emit(PaymentResult.Error("请通过purchaseProduct方法进行支付"))
-            } else {
-                emit(PaymentResult.Error("产品未找到: $productId"))
+            // 1. 查询商品详情
+            val products = querySubscriptionProducts()
+            val productDetails = products.find { it.productId == productId }
+            
+            if (productDetails == null) {
+                emit(PaymentResult.Error("Product not found: $productId"))
+                return@flow
             }
+            
+            // 2. 启动购买流程
+            val purchaseStarted = launchBillingFlow(activity, productDetails)
+            if (!purchaseStarted) {
+                emit(PaymentResult.Error("Failed to launch billing flow"))
+            }
+            // 购买结果将通过 onPurchasesUpdated 回调处理
+            
         } catch (e: Exception) {
-            emit(PaymentResult.Error("支付失败: ${e.message}", e))
+            emit(PaymentResult.Error("Payment failed: ${e.message}", e))
         }
     }
     
