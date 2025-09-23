@@ -530,13 +530,16 @@ class HomeViewModel @Inject constructor(
     private fun observeDataUpdates() {
         viewModelScope.launch {
             dataUpdateManager.dataUpdateFlow.collect { event ->
-                android.util.Log.d("HomeViewModel", "收到数据更新事件: ${event.updateType}")
+                android.util.Log.d("HomeViewModel", "收到数据更新事件: ${event.updateType} @ ${event.timestamp}")
                 
                 // 刷新当前选中分类的数据
                 _selectedCategory.value?.let { category ->
+                    android.util.Log.d("HomeViewModel", "🔄 响应数据更新事件，刷新分类: ${category.name} (ID: ${category.id})")
                     loadUsageData(category.id)
                     loadCategoryGoal(category.id)
                     loadRewardPunishmentSummary()
+                } ?: run {
+                    android.util.Log.w("HomeViewModel", "⚠️ 收到数据更新事件但无选中分类")
                 }
             }
         }
@@ -623,6 +626,7 @@ class HomeViewModel @Inject constructor(
     init {
         loadInitialData()
         observeDataUpdates()
+        startAutoRefresh()
     }
     
 
@@ -630,6 +634,23 @@ class HomeViewModel @Inject constructor(
     fun loadInitialData() {
         loadCategories()
         // Load additional data as needed
+    }
+
+    private fun startAutoRefresh() {
+        viewModelScope.launch {
+            while (isActive) {
+                delay(30_000)
+                _selectedCategory.value?.let { category ->
+                    try {
+                        android.util.Log.d("HomeViewModel", "⏱️ 周期性自动刷新: categoryId=${category.id}")
+                        loadUsageData(category.id)
+                        loadCategoryGoal(category.id)
+                        loadRewardPunishmentSummary()
+                    } catch (_: Exception) {
+                    }
+                }
+            }
+        }
     }
 
     fun loadCategories() {

@@ -117,7 +117,15 @@
         <service
             android:name=".service.DataAggregationService"
             android:enabled="true"
-            android:exported="false" />
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="data_aggregation" />
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE_EXPLANATION"
+                android:value="This service aggregates usage data and cleans duplicates in the background." />
+        </service>
         
         <!-- 统一更新服务 -->
         <service

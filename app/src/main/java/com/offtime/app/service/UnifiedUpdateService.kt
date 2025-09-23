@@ -51,7 +51,7 @@ class UnifiedUpdateService : Service() {
         const val ACTION_MANUAL_UPDATE = "com.offtime.app.MANUAL_UPDATE"
         
         private const val TAG = "UnifiedUpdateService"
-        private const val UPDATE_INTERVAL_MS = 60_000L   // 1分钟更新间隔
+        private const val UPDATE_INTERVAL_MS = 30_000L   // 30秒更新间隔
         private const val QUICK_UPDATE_INTERVAL_MS = 10_000L  // 快速更新间隔（活跃应用）
         private const val NOTIFICATION_ID = 2002
         private const val CHANNEL_ID = "unified_update_channel"
@@ -163,21 +163,15 @@ class UnifiedUpdateService : Service() {
                 stopSelf(startId)
             }
             ACTION_MANUAL_UPDATE -> {
-                // 手动更新也需要启动前台服务以符合Android规范
-                startForeground(NOTIFICATION_ID, createNotification())
+                // 如果定时更新没有运行，先启动前台服务和定时循环
+                if (!isPeriodicUpdateRunning) {
+                    startForeground(NOTIFICATION_ID, createNotification())
+                    startPeriodicUpdate()
+                }
+                
+                // 执行手动更新，但不停止服务
                 serviceScope.launch {
-                    try {
-                        performUnifiedUpdate(DataUpdateManager.UPDATE_TYPE_MANUAL)
-                    } finally {
-                        // 手动更新完成后停止前台服务
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                            stopForeground(STOP_FOREGROUND_REMOVE)
-                        } else {
-                            @Suppress("DEPRECATION")
-                            stopForeground(true)
-                        }
-                        stopSelf(startId)
-                    }
+                    performUnifiedUpdate(DataUpdateManager.UPDATE_TYPE_MANUAL)
                 }
             }
         }
@@ -209,7 +203,7 @@ class UnifiedUpdateService : Service() {
                 quickUpdateCounter++
                 
                 if (isPeriodicUpdateRunning) {
-                    if (quickUpdateCounter >= 6) {  // 60秒 = 6 * 10秒
+                    if (quickUpdateCounter >= 3) {  // 30秒 = 3 * 10秒
                         // 完整更新
                         performUnifiedUpdate(DataUpdateManager.UPDATE_TYPE_PERIODIC)
                         quickUpdateCounter = 0

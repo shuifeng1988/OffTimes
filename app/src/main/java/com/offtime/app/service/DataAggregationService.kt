@@ -1,9 +1,15 @@
 package com.offtime.app.service
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.os.Build
+import android.content.pm.ServiceInfo
 import android.os.IBinder
 import android.util.Log
+import androidx.core.app.NotificationCompat
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -35,6 +41,7 @@ import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
 import com.offtime.app.widget.OffTimeLockScreenWidget
+import com.offtime.app.R
 
 /**
  * 数据聚合服务
@@ -70,6 +77,8 @@ class DataAggregationService : Service() {
         const val ACTION_PROCESS_HISTORICAL_DATA = "com.offtime.app.PROCESS_HISTORICAL_DATA"
         const val ACTION_CLEAN_DUPLICATE_SESSIONS = "com.offtime.app.CLEAN_DUPLICATE_SESSIONS"
         private const val TAG = "DataAggregationService"
+        private const val CHANNEL_ID = "data_aggregation_channel"
+        private const val NOTIFICATION_ID = 2011
         
         /**
          * 手动触发数据聚合
@@ -196,6 +205,11 @@ class DataAggregationService : Service() {
     
     override fun onBind(intent: Intent?): IBinder? = null
     
+    override fun onCreate() {
+        super.onCreate()
+        ensureNotificationChannel()
+    }
+
     /**
      * 服务启动命令处理
      * 
@@ -207,6 +221,18 @@ class DataAggregationService : Service() {
      * 5. ACTION_CLEAN_DUPLICATE_SESSIONS: 清理重复会话记录
      */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Android 8+ 要求前台服务在启动后短时间内调用 startForeground
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(
+                NOTIFICATION_ID,
+                buildNotification(),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            )
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, buildNotification(), 0)
+        } else {
+            startForeground(NOTIFICATION_ID, buildNotification())
+        }
         when (intent?.action) {
             ACTION_AGGREGATE_DATA -> {
                 serviceScope.launch {
@@ -244,6 +270,31 @@ class DataAggregationService : Service() {
             }
         }
         return START_STICKY  // 服务被杀死后自动重启，确保历史数据能被处理
+    }
+
+    private fun ensureNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val nm = getSystemService(NotificationManager::class.java)
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "数据聚合",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "用于后台执行数据聚合与清理"
+                setShowBadge(false)
+            }
+            nm.createNotificationChannel(channel)
+        }
+    }
+
+    private fun buildNotification(): Notification {
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("正在处理数据")
+            .setContentText("聚合与清理中…")
+            .setSmallIcon(R.drawable.ic_timer)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
     }
     
     /**

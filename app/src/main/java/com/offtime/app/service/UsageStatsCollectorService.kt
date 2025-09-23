@@ -87,6 +87,11 @@ class UsageStatsCollectorService : Service() {
     private var pausedSessionStartTime: Long? = null
     private var pausedSessionPauseTime: Long? = null
     
+    // 使用UsageStatsManager获取当前前台应用
+    // 这是一个比ActivityManager.getRunningTasks更可靠的方法
+    private var lastKnownForeground: String? = null
+    private var lastKnownTs: Long = 0L
+
     companion object {
         private const val TAG = "UsageStatsCollector"
         private const val NOTIFICATION_ID = 2001
@@ -298,6 +303,50 @@ class UsageStatsCollectorService : Service() {
             Log.d(TAG, "🔄 主动拉取最新事件确保实时统计准确 (前台=${AppLifecycleObserver.isActivityInForeground.value})")
             pullLatestEventsForRealtime()
             
+            // 🏠 若桌面/Launcher在前台，结束并清空当前会话，防止错误延长
+            try {
+                val nowTs = currentTime
+                val ue = usageStatsManager.queryEvents(nowTs - 10_000, nowTs)
+                var lastResumePkg: String? = null
+                var lastResumeTs: Long = 0
+                while (ue.hasNextEvent()) {
+                    val e = UsageEvents.Event()
+                    ue.getNextEvent(e)
+                    if (e.eventType == UsageEvents.Event.ACTIVITY_RESUMED || e.eventType == 1 || e.eventType == 19) {
+                        lastResumePkg = e.packageName
+                        lastResumeTs = e.timeStamp
+                    } else if ((e.eventType == UsageEvents.Event.ACTIVITY_PAUSED || e.eventType == 2 || e.eventType == 20 || e.eventType == 23) && e.packageName == lastResumePkg) {
+                        lastResumePkg = null
+                    }
+                }
+                if (lastResumePkg != null && isLauncherApp(lastResumePkg)) {
+                    if (currentForegroundPackage != null) {
+                        val start = currentSessionStartTime ?: (nowTs - 1000)
+                        Log.d(TAG, "🏠 检测到Launcher在前台，结算并清空当前会话: $currentForegroundPackage")
+                        saveSession(currentForegroundPackage!!, start, nowTs)
+                        currentForegroundPackage = null
+                        currentSessionStartTime = null
+                    }
+                    Log.d(TAG, "实时统计 → 当前无活跃应用(Launcher)")
+                    return
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "Launcher检测失败(忽略): ${t.message}")
+            }
+            
+            // 移除有问题的清理逻辑，保持原本简单可靠的方式
+            
+            // 回退方案：若仍未知当前前台应用，则尝试通过 queryUsageStats 推断
+            if (currentForegroundPackage == null) {
+                val fg = getForegroundApp()
+                val offTimesPrefix = "com.offtime.app"
+                if (fg != null && !(fg.startsWith(offTimesPrefix) && !AppLifecycleObserver.isActivityInForeground.value)) {
+                    currentForegroundPackage = fg
+                    currentSessionStartTime = if (lastKnownTs > 0) lastKnownTs else currentTime
+                    Log.d(TAG, "✅ 回退推断前台应用: $fg, startTs=${currentSessionStartTime}")
+                }
+            }
+            
             // 使用新的状态机变量
             if (currentForegroundPackage != null && currentSessionStartTime != null) {
                 val packageName = currentForegroundPackage!!
@@ -448,6 +497,14 @@ class UsageStatsCollectorService : Service() {
                     Log.d(TAG, "✅ 恢复了活跃应用: $lastForegroundApp, 开始时间: $lastForegroundTime")
                 } else {
                     Log.d(TAG, "没有发现需要恢复的活跃应用")
+                    // 事件为空时的回退：用 queryUsageStats 推断最近可见的用户应用
+                    val fg = getForegroundApp()
+                    val offTimesPrefix = "com.offtime.app"
+                    if (fg != null && !fg.startsWith(offTimesPrefix)) {
+                        currentForegroundPackage = fg
+                        currentSessionStartTime = if (lastKnownTs > 0) lastKnownTs else now
+                        Log.d(TAG, "✅ 回退恢复活跃应用: $fg, 开始时间: ${currentSessionStartTime}")
+                    }
                 }
                 
             } catch (e: Exception) {
@@ -562,6 +619,17 @@ class UsageStatsCollectorService : Service() {
 
                 when (event.eventType) {
                     UsageEvents.Event.ACTIVITY_RESUMED, 1, 19 -> {
+                        // 若Launcher成为前台，则结束当前会话并清空前台状态
+                        if (isLauncherApp(eventPackageName)) {
+                            if (currentForegroundPackage != null) {
+                                val start = currentSessionStartTime ?: (event.timeStamp - 1000)
+                                Log.d(TAG, "🏠 Launcher前台，结算当前会话: $currentForegroundPackage")
+                                saveSession(currentForegroundPackage!!, start, event.timeStamp)
+                                currentForegroundPackage = null
+                                currentSessionStartTime = null
+                            }
+                            continue
+                        }
                         // 状态机总闸保护：任何UI不在前台的OffTimes“前台事件”一律忽略
                         if (event.packageName != null &&
                             event.packageName.startsWith("com.offtime.app") &&
@@ -577,6 +645,11 @@ class UsageStatsCollectorService : Service() {
                             // 若上一个应用仍是前台且与新事件属于不同应用，正常结算
                             if (!(eventPackageName.startsWith("com.offtime.app") && !AppLifecycleObserver.isActivityInForeground.value)) {
                                 val endTs = event.timeStamp
+                                // 兜底保护：如果缺少开始时间，使用最近已知时间或当前事件时间
+                                if (currentSessionStartTime == null) {
+                                    currentSessionStartTime = if (lastKnownTs > 0) lastKnownTs else endTs
+                                    Log.w(TAG, " 9e0a 检测到缺失的会话起点，为 ${currentForegroundPackage} 使用兜底起点=${currentSessionStartTime}")
+                                }
                                 val startTs = currentSessionStartTime!!
                                 val duration = (endTs - startTs) / 1000
                                 Log.d(TAG, "📱 应用切换: ${currentForegroundPackage} -> ${eventPackageName}, 上一个会话时长=${duration}秒")
@@ -626,6 +699,12 @@ class UsageStatsCollectorService : Service() {
                             val eventTimeStr = java.text.SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(event.timeStamp)
                             Log.d(TAG, "⏹️ 应用停止: ${eventPackageName} at $eventTimeStr")
                             
+                            // 兜底保护：如果缺少开始时间，使用最近已知时间或稍早于当前事件时间
+                            if (currentSessionStartTime == null) {
+                                currentSessionStartTime = if (lastKnownTs > 0) lastKnownTs else (event.timeStamp - 1000)
+                                Log.w(TAG, " 9e0a 检测到缺失的会话起点，为 ${currentForegroundPackage} 使用兜底起点=${currentSessionStartTime}")
+                            }
+                            
                             saveSession(currentForegroundPackage!!, currentSessionStartTime!!, event.timeStamp)
                             
                             // 重置状态
@@ -672,13 +751,6 @@ class UsageStatsCollectorService : Service() {
     }
 
     /**
-     * 使用UsageStatsManager获取当前前台应用
-     * 这是一个比ActivityManager.getRunningTasks更可靠的方法
-     */
-    private var lastKnownForeground: String? = null
-    private var lastKnownTs: Long = 0L
-
-    /**
      * 更可靠的前台应用获取：
      * - 回看近10秒UsageEvents，取最后一个有效RESUMED(1/19)，且未被后续PAUSED覆盖
      * - 事件与当前时间差>3秒视为过期，返回lastKnownForeground
@@ -688,6 +760,70 @@ class UsageStatsCollectorService : Service() {
     private fun getForegroundApp(): String? {
         val now = System.currentTimeMillis()
         val offTimesPrefix = "com.offtime.app"
+
+        try {
+            val usm = applicationContext.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+            val start = now - 60_000 // 增加回看时间到60秒，提高稳定性
+            
+            // 使用 queryUsageStats API 作为替代方案
+            val usageStatsList = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, start, now)
+            
+            if (usageStatsList != null && usageStatsList.isNotEmpty()) {
+                // 寻找最近可见的应用
+                var recentApp: android.app.usage.UsageStats? = null
+                for (usageStats in usageStatsList) {
+                    if (usageStats.lastTimeVisible > (recentApp?.lastTimeVisible ?: 0)) {
+                        recentApp = usageStats
+                    }
+                }
+                
+                val candidate = recentApp?.packageName
+                val candidateTs = recentApp?.lastTimeVisible ?: 0
+                
+                if (candidate != null) {
+                    // 忽略Launcher/桌面
+                    if (isLauncherApp(candidate)) {
+                        Log.d(TAG, "getForegroundApp(new): 候选为Launcher，视为无前台")
+                        return null
+                    }
+                    val age = now - candidateTs
+                    // 放宽容忍时间到3分钟，适配部分系统上lastTimeVisible刷新不及时
+                    if (age <= 180_000) {
+                        if (candidate.startsWith(offTimesPrefix) && !AppLifecycleObserver.isActivityInForeground.value) {
+                            Log.d(TAG, "getForegroundApp(new): 候选为OffTimes但UI不在前台，忽略，返回缓存=$lastKnownForeground")
+                            return lastKnownForeground
+                        }
+                        lastKnownForeground = candidate
+                        lastKnownTs = candidateTs
+                        Log.d(TAG, "getForegroundApp(new): 即时前台=$candidate, age=${age}ms")
+                        return candidate
+                    } else {
+                        // 若没有任何已知前台，则在兜底情况下也返回该候选，避免空值
+                        if (lastKnownForeground == null) {
+                            Log.d(TAG, "getForegroundApp(new): 候选较旧(age=${age}ms)但无缓存，兜底返回=$candidate")
+                            lastKnownForeground = candidate
+                            lastKnownTs = candidateTs
+                            return candidate
+                        }
+                        Log.d(TAG, "getForegroundApp(new): 候选过期(age=${age}ms)，返回缓存=$lastKnownForeground")
+                        return lastKnownForeground
+                    }
+                }
+            }
+
+            // 如果新方法失败，回退到旧的实现
+            return getForegroundAppLegacy(now, offTimesPrefix)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "获取前台应用失败", e)
+            return getForegroundAppLegacy(now, offTimesPrefix)
+        }
+    }
+
+    /**
+     * 旧的基于 UsageEvents 的前台应用获取逻辑
+     */
+    private fun getForegroundAppLegacy(now: Long, offTimesPrefix: String): String? {
         try {
             val usm = applicationContext.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
             val start = now - 10_000
@@ -699,6 +835,7 @@ class UsageStatsCollectorService : Service() {
                 val e = UsageEvents.Event()
                 ue.getNextEvent(e)
                 val p = e.packageName ?: continue
+                if (isLauncherApp(p)) continue
                 when (e.eventType) {
                     UsageEvents.Event.ACTIVITY_RESUMED, 1, 19 -> {
                         if (!paused.contains(p)) {
@@ -714,25 +851,23 @@ class UsageStatsCollectorService : Service() {
             if (candidate != null) {
                 val age = now - candidateTs
                 if (age <= 3_000) {
-                    // 若返回的是OffTimes但UI不在前台，则忽略，回退到缓存
                     if (candidate.startsWith(offTimesPrefix) && !AppLifecycleObserver.isActivityInForeground.value) {
-                        Log.d(TAG, "getForegroundApp: 候选为OffTimes但UI不在前台，忽略，返回缓存=$lastKnownForeground")
+                        Log.d(TAG, "getForegroundApp(legacy): 候选为OffTimes但UI不在前台，忽略，返回缓存=$lastKnownForeground")
                         return lastKnownForeground
                     }
                     lastKnownForeground = candidate
                     lastKnownTs = candidateTs
-                    Log.d(TAG, "getForegroundApp: 即时前台=$candidate, age=${age}ms")
+                    Log.d(TAG, "getForegroundApp(legacy): 即时前台=$candidate, age=${age}ms")
                     return candidate
                 } else {
-                    Log.d(TAG, "getForegroundApp: 候选过期(age=${age}ms)，返回缓存=$lastKnownForeground")
+                    Log.d(TAG, "getForegroundApp(legacy): 候选过期(age=${age}ms)，返回缓存=$lastKnownForeground")
                     return lastKnownForeground
                 }
             }
 
-            // 没有候选则返回缓存
             return lastKnownForeground
         } catch (e: Exception) {
-            Log.e(TAG, "获取前台应用失败", e)
+            Log.e(TAG, "获取前台应用(legacy)失败", e)
             return lastKnownForeground
         }
     }

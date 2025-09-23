@@ -206,12 +206,14 @@ class AppSessionRepository @Inject constructor(
 
         val firstDayDuration = ((firstDayEndTime - startTime) / 1000).toInt()
         if (firstDayDuration >= 2) {
-            insertSingleSession(appInfo, pkgName, startTime, firstDayEndTime, startDate)
+            // 使用同日合并/去重逻辑，避免跨天多次分割导致重复插入
+            handleSameDaySession(appInfo, pkgName, startTime, firstDayEndTime, startDate)
         }
 
         val secondDayDuration = ((endTime - secondDayStartTime) / 1000).toInt()
         if (secondDayDuration >= 2) {
-            insertSingleSession(appInfo, pkgName, secondDayStartTime, endTime, endDate)
+            // 次日区间随着时间推进会被多次调用，必须走合并/去重流程
+            handleSameDaySession(appInfo, pkgName, secondDayStartTime, endTime, endDate)
         }
     }
 
