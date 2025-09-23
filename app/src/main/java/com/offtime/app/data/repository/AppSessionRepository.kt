@@ -189,6 +189,17 @@ class AppSessionRepository @Inject constructor(
     ) {
         android.util.Log.d("AppSessionRepository", "处理跨日期会话: $pkgName, 总时长:${totalDuration}秒")
 
+        // 🔧 修复重复记录问题：先检查是否已存在相同的跨天分割记录
+        val existingFirstDay = appSessionUserDao.getSessionsByDate(startDate)
+            .filter { it.pkgName == pkgName && it.startTime == startTime }
+        val existingSecondDay = appSessionUserDao.getSessionsByDate(endDate)
+            .filter { it.pkgName == pkgName && it.endTime == endTime }
+
+        if (existingFirstDay.isNotEmpty() || existingSecondDay.isNotEmpty()) {
+            android.util.Log.w("AppSessionRepository", "检测到重复的跨天分割记录，跳过处理: $pkgName")
+            return
+        }
+
         val calendar = Calendar.getInstance()
         calendar.timeInMillis = startTime
         calendar.set(Calendar.HOUR_OF_DAY, 23)
@@ -206,15 +217,56 @@ class AppSessionRepository @Inject constructor(
 
         val firstDayDuration = ((firstDayEndTime - startTime) / 1000).toInt()
         if (firstDayDuration >= 2) {
-            // 使用同日合并/去重逻辑，避免跨天多次分割导致重复插入
-            handleSameDaySession(appInfo, pkgName, startTime, firstDayEndTime, startDate)
+            // 🔧 增强重复检测：使用更精确的时间范围检查
+            handleCrossDaySession(appInfo, pkgName, startTime, firstDayEndTime, startDate, "first_day")
         }
 
         val secondDayDuration = ((endTime - secondDayStartTime) / 1000).toInt()
         if (secondDayDuration >= 2) {
-            // 次日区间随着时间推进会被多次调用，必须走合并/去重流程
-            handleSameDaySession(appInfo, pkgName, secondDayStartTime, endTime, endDate)
+            // 🔧 增强重复检测：使用更精确的时间范围检查
+            handleCrossDaySession(appInfo, pkgName, secondDayStartTime, endTime, endDate, "second_day")
         }
+    }
+
+    /**
+     * 🔧 新增：专门处理跨天分割的单个部分，增强重复检测
+     */
+    private suspend fun handleCrossDaySession(
+        appInfo: AppInfoEntity,
+        pkgName: String,
+        startTime: Long,
+        endTime: Long,
+        date: String,
+        part: String
+    ) {
+        // 更严格的重复检测：检查时间范围重叠
+        val existingSessions = appSessionUserDao.getSessionsByDate(date)
+            .filter { session ->
+                session.pkgName == pkgName &&
+                // 检查时间范围重叠
+                (session.startTime <= startTime && session.endTime >= endTime) ||
+                (session.startTime >= startTime && session.endTime <= endTime) ||
+                (session.startTime <= startTime && session.endTime > startTime) ||
+                (session.startTime < endTime && session.endTime >= endTime)
+            }
+
+        if (existingSessions.isNotEmpty()) {
+            android.util.Log.d("AppSessionRepository", "发现重叠的跨天分割记录($part)，尝试合并: $pkgName")
+            // 找到最合适的会话进行合并
+            val targetSession = existingSessions.maxByOrNull { it.durationSec }
+            if (targetSession != null) {
+                val newStart = minOf(targetSession.startTime, startTime)
+                val newEnd = maxOf(targetSession.endTime, endTime)
+                val newDuration = ((newEnd - newStart) / 1000).toInt()
+                appSessionUserDao.updateSessionTimeRange(targetSession.id, newStart, newEnd, newDuration)
+                android.util.Log.d("AppSessionRepository", "跨天分割合并成功($part): $pkgName, 新区间=[${newStart}, ${newEnd}] ${newDuration}s")
+                return
+            }
+        }
+
+        // 没有重叠，插入新会话
+        insertSingleSession(appInfo, pkgName, startTime, endTime, date)
+        android.util.Log.d("AppSessionRepository", "跨天分割插入新会话($part): $pkgName, 时长:${((endTime - startTime) / 1000).toInt()}秒")
     }
 
     private suspend fun shouldFilterSystemApp(packageName: String): Boolean {

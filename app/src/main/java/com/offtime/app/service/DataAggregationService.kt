@@ -1688,12 +1688,13 @@ class DataAggregationService : Service() {
 
     /**
      * 清理 app_sessions_user 表中的重复记录
-     * - 重复定义：pkgName, startTime, endTime, durationSec 均相同
-     * - 保留策略：保留id最小的记录
+     * 🔧 增强版：特别处理跨天分割产生的重复记录
+     * - 重复定义：pkgName, startTime, endTime, durationSec 均相同 OR 跨天分割重复
+     * - 保留策略：保留id最小的记录，或时长最长的记录
      */
     private suspend fun cleanDuplicateAppSessions() {
         withContext(Dispatchers.IO) {
-            Log.i(TAG, "开始清理重复的App会话记录...")
+            Log.i(TAG, "开始清理重复的App会话记录（增强版）...")
             try {
                 val allSessions = appSessionDao.getAllSessions()
                 if (allSessions.isEmpty()) {
@@ -1704,24 +1705,65 @@ class DataAggregationService : Service() {
                 val sessionsToKeep = mutableSetOf<Int>()
                 val sessionsToDelete = mutableListOf<Int>()
                 
-                // 按会话特征分组，找出重复项
-                val groupedSessions = allSessions.groupBy { 
+                // 🔧 第一步：清理完全相同的重复记录
+                val exactDuplicates = allSessions.groupBy { 
                     "${it.pkgName}_${it.startTime}_${it.endTime}_${it.durationSec}"
                 }
 
-                groupedSessions.forEach { (_, sessions) ->
+                exactDuplicates.forEach { (_, sessions) ->
                     if (sessions.size > 1) {
-                        // 如果存在重复，找出ID最小的那个保留
                         val sessionToKeep = sessions.minByOrNull { it.id }
                         if (sessionToKeep != null) {
                             sessionsToKeep.add(sessionToKeep.id)
-                            // 将其他所有重复项加入删除列表
                             sessions.forEach { session ->
                                 if (session.id != sessionToKeep.id) {
                                     sessionsToDelete.add(session.id)
                                 }
                             }
-                            Log.w(TAG, "发现 ${sessions.size - 1} 个重复会话 for ${sessionToKeep.pkgName}. 保留 ID: ${sessionToKeep.id}, 待删除 IDs: ${sessions.filter { it.id != sessionToKeep.id }.map { it.id }}")
+                            Log.w(TAG, "清理完全重复会话: ${sessionToKeep.pkgName}, 删除 ${sessions.size - 1} 个重复项")
+                        }
+                    }
+                }
+
+                // 🔧 第二步：清理跨天分割产生的重复记录
+                val remainingSessions = allSessions.filter { !sessionsToDelete.contains(it.id) }
+                val sessionsByPackageAndDate = remainingSessions.groupBy { "${it.pkgName}_${it.date}" }
+                
+                sessionsByPackageAndDate.forEach { (key, sessions) ->
+                    if (sessions.size > 1) {
+                        // 检查是否有时间重叠的会话（可能是跨天分割重复）
+                        val sortedSessions = sessions.sortedBy { it.startTime }
+                        val overlappingSessions = mutableListOf<List<AppSessionUserEntity>>()
+                        
+                        for (i in sortedSessions.indices) {
+                            val currentSession = sortedSessions[i]
+                            val overlappingGroup = mutableListOf(currentSession)
+                            
+                            for (j in i + 1 until sortedSessions.size) {
+                                val nextSession = sortedSessions[j]
+                                // 检查时间重叠或紧密相邻（5秒内）
+                                if (nextSession.startTime <= currentSession.endTime + 5000) {
+                                    overlappingGroup.add(nextSession)
+                                }
+                            }
+                            
+                            if (overlappingGroup.size > 1) {
+                                overlappingSessions.add(overlappingGroup)
+                            }
+                        }
+                        
+                        // 对每组重叠会话，保留时长最长的
+                        overlappingSessions.forEach { group ->
+                            val sessionToKeep = group.maxByOrNull { it.durationSec }
+                            if (sessionToKeep != null && !sessionsToKeep.contains(sessionToKeep.id)) {
+                                sessionsToKeep.add(sessionToKeep.id)
+                                group.forEach { session ->
+                                    if (session.id != sessionToKeep.id && !sessionsToDelete.contains(session.id)) {
+                                        sessionsToDelete.add(session.id)
+                                    }
+                                }
+                                Log.w(TAG, "清理跨天重复会话: ${sessionToKeep.pkgName}, 保留最长会话(${sessionToKeep.durationSec}s), 删除 ${group.size - 1} 个重复项")
+                            }
                         }
                     }
                 }
@@ -1729,9 +1771,9 @@ class DataAggregationService : Service() {
                 if (sessionsToDelete.isNotEmpty()) {
                     // 批量删除重复记录
                     appSessionDao.deleteSessionsByIds(sessionsToDelete)
-                    Log.i(TAG, "成功删除了 ${sessionsToDelete.size} 条重复的会话记录。")
+                    Log.i(TAG, "🎯 清理完成：删除了 ${sessionsToDelete.size} 条重复的会话记录")
                 } else {
-                    Log.i(TAG, "未发现需要清理的重复会话记录。")
+                    Log.i(TAG, "✅ 未发现需要清理的重复会话记录")
                 }
 
             } catch (e: Exception) {
