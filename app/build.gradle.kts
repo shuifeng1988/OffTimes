@@ -15,8 +15,8 @@ android {
     defaultConfig {
         minSdk = 24
         targetSdk = 35
-        versionCode = 25
-        versionName = "1.4.0"
+        versionCode = 26
+        versionName = "1.4.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -82,6 +82,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Debug版本禁用Google登录，避免配置问题
+            buildConfigField("boolean", "ENABLE_GOOGLE_LOGIN", "false")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true

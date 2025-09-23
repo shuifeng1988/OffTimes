@@ -277,6 +277,9 @@ fun OffTimeApp(
                         },
                         onNavigateToLanguageSettings = {
                             navController.navigate("language_settings")
+                        },
+                        onNavigateToAbout = {
+                            navController.navigate("about")
                         }
                     )
                 }
@@ -524,6 +527,13 @@ fun OffTimeApp(
                         onRestartRequired = {
                             // 显示重启提示，但不强制重启
                             // 用户可以选择继续使用或手动重启应用
+                        }
+                    )
+                }
+                composable("about") {
+                    AboutScreen(
+                        onNavigateBack = {
+                            navController.popBackStack()
                         }
                     )
                 }

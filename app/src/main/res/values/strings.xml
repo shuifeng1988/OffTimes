@@ -16,6 +16,7 @@
     
     <!-- 通用操作 -->
     <string name="action_back">返回</string>
+    <string name="back">返回</string>
     <string name="action_save">保存</string>
     <string name="action_cancel">取消</string>
     <string name="action_confirm">确认</string>
@@ -873,4 +874,22 @@
     <!-- 首次设置 -->
     <string name="onboarding_first_setup">首次设置</string>
     <string name="loading">加载中...</string>
+    
+    <!-- 关于页面 -->
+    <string name="about">关于</string>
+    <string name="app_description">专注于帮助用户管理手机使用时间，培养健康的数字生活习惯</string>
+    <string name="version_info">版本信息</string>
+    <string name="version_name">版本名称</string>
+    <string name="version_code">版本号</string>
+    <string name="build_type">构建类型</string>
+    <string name="application_id">应用包名</string>
+    <string name="target_sdk">目标SDK</string>
+    <string name="min_sdk">最低SDK</string>
+    <string name="features">功能特性</string>
+    <string name="feature_usage_tracking">应用使用时间跟踪</string>
+    <string name="feature_goal_setting">目标设置与提醒</string>
+    <string name="feature_statistics">详细统计分析</string>
+    <string name="feature_premium_upgrade">高级功能升级</string>
+    <string name="feature_google_play">Google Play支付</string>
+    <string name="feature_alipay">支付宝支付</string>
 </resources> 

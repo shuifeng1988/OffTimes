@@ -51,6 +51,7 @@ fun SettingsScreen(
     onNavigateToPayment: () -> Unit = {},
     onNavigateToLogin: () -> Unit = {},
     onNavigateToLanguageSettings: () -> Unit = {},
+    onNavigateToAbout: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -691,6 +692,36 @@ fun SettingsScreen(
                     ) {
                         Text(
                             text = stringResource(R.string.settings_action_reset),
+                            fontSize = 16.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // 关于应用
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.about),
+                            fontSize = 16.sp
+                        )
+                        Text(
+                            text = stringResource(R.string.app_description),
+                            fontSize = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    
+                    Button(
+                        onClick = onNavigateToAbout
+                    ) {
+                        Text(
+                            text = stringResource(R.string.about),
                             fontSize = 16.sp
                         )
                     }

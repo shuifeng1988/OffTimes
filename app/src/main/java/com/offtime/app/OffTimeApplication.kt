@@ -12,10 +12,12 @@ import com.offtime.app.utils.UsageStatsPermissionHelper
 import com.offtime.app.data.repository.AppRepository
 import com.offtime.app.data.repository.GoalRewardPunishmentRepository
 import com.offtime.app.data.database.OffTimeDatabase
+import com.offtime.app.BuildConfig
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import javax.inject.Named
 
 @HiltAndroidApp
 class OffTimeApplication : Application() {
@@ -43,6 +45,12 @@ class OffTimeApplication : Application() {
     @Inject
     lateinit var localeUtils: LocaleUtils
     
+    // Google Play支付管理器（仅在Google Play版本中可用）
+    @Inject
+    @Named("google")
+    @JvmField
+    var googlePlayBillingManager: com.offtime.app.manager.interfaces.PaymentManager? = null
+    
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -57,6 +65,28 @@ class OffTimeApplication : Application() {
         checkAndUpdateLanguageData()
         
         android.util.Log.d("OffTimeApplication", "应用启动 - 首次启动: ${firstLaunchManager.isFirstLaunch()}, 引导完成: ${firstLaunchManager.isOnboardingCompleted()}")
+        
+        // 初始化Google Play支付服务（仅在Google Play版本中）
+        android.util.Log.d("OffTimeApplication", "🔍 检查Google Play支付配置: ENABLE_GOOGLE_PAY=${BuildConfig.ENABLE_GOOGLE_PAY}")
+        if (BuildConfig.ENABLE_GOOGLE_PAY && googlePlayBillingManager != null) {
+            try {
+                android.util.Log.d("OffTimeApplication", "🔧 开始初始化Google Play支付服务...")
+                android.util.Log.d("OffTimeApplication", "📦 GooglePlay支付管理器实例: $googlePlayBillingManager")
+                
+                try {
+                    android.util.Log.d("OffTimeApplication", "✅ 开始调用initialize()方法")
+                    val initializeMethod = googlePlayBillingManager!!.javaClass.getMethod("initialize")
+                    initializeMethod.invoke(googlePlayBillingManager)
+                    android.util.Log.d("OffTimeApplication", "✅ Google Play支付服务初始化调用完成")
+                } catch (e: Exception) {
+                    android.util.Log.e("OffTimeApplication", "❌ GooglePlay支付管理器初始化失败: ${e.message}")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("OffTimeApplication", "❌ Google Play支付服务初始化失败", e)
+            }
+        } else {
+            android.util.Log.d("OffTimeApplication", "⚠️ Google Play支付未启用，跳过初始化")
+        }
         
         // 检查首次启动状态
         if (!firstLaunchManager.isFirstLaunch() && firstLaunchManager.isOnboardingCompleted()) {

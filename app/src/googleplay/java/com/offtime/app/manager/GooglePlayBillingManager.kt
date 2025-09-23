@@ -32,37 +32,81 @@ class GooglePlayBillingManager @Inject constructor(
         
         // 价格配置
         const val PREMIUM_LIFETIME_PRICE_USD = "9.90"  // 9.9美元一次性购买
+        
+        // 连接重试配置
+        private const val MAX_RETRY_COUNT = 3
     }
     
     private var billingClient: BillingClient? = null
     private var isServiceConnected = false
     private var purchaseCallback: ((PurchaseResult) -> Unit)? = null
+    private var retryCount = 0
     
     override suspend fun pay(activity: Activity, productId: String): Flow<PaymentResult> = flow {
+        Log.d(TAG, "🚀 开始支付流程: productId=$productId")
         emit(PaymentResult.Loading)
+        
         if (!isServiceConnected) {
+            Log.e(TAG, "❌ 计费服务未连接")
             emit(PaymentResult.Error("Billing service not connected"))
             return@flow
         }
         
         try {
-            // 1. 查询商品详情
-            val products = querySubscriptionProducts()
+            // 🧪 Debug模式下的模拟支付逻辑
+            if (com.offtime.app.BuildConfig.DEBUG && isServiceConnected && billingClient?.isReady != true) {
+                Log.w(TAG, "🧪 使用模拟支付模式（开发测试）")
+                
+                // 模拟用户确认支付的对话框
+                Log.d(TAG, "💰 模拟支付: 产品=$productId, 价格=$PREMIUM_LIFETIME_PRICE_USD USD")
+                
+                // 延迟2秒模拟支付处理时间
+                kotlinx.coroutines.delay(2000)
+                
+                Log.d(TAG, "✅ 模拟支付成功！")
+                emit(PaymentResult.Success("模拟支付成功", null))
+                return@flow
+            }
+            
+            Log.d(TAG, "🔍 查询产品详情...")
+            // 1. 查询一次性购买商品详情（不是订阅）
+            val products = queryInAppProducts()
+            Log.d(TAG, "📦 查询到 ${products.size} 个产品")
+            
             val productDetails = products.find { it.productId == productId }
             
             if (productDetails == null) {
+                Log.e(TAG, "❌ 产品未找到: $productId")
+                
+                // 🧪 完全模拟支付模式 - 当产品未在Google Play Console配置时
+                if (com.offtime.app.BuildConfig.DEBUG) {
+                    Log.w(TAG, "🧪 产品未配置，启用完全模拟支付模式")
+                    Log.d(TAG, "💰 模拟支付: 产品=$productId, 价格=$PREMIUM_LIFETIME_PRICE_USD USD")
+                    kotlinx.coroutines.delay(2000)
+                    Log.d(TAG, "✅ 模拟支付成功！")
+                    emit(PaymentResult.Success("模拟支付成功 (产品未配置)", null))
+                    return@flow
+                }
+                
                 emit(PaymentResult.Error("Product not found: $productId"))
                 return@flow
             }
             
+            Log.d(TAG, "✅ 找到产品: ${productDetails.name}, 价格: ${productDetails.oneTimePurchaseOfferDetails?.formattedPrice}")
+            
             // 2. 启动购买流程
+            Log.d(TAG, "🛒 启动购买流程...")
             val purchaseStarted = launchBillingFlow(activity, productDetails)
             if (!purchaseStarted) {
+                Log.e(TAG, "❌ 启动购买流程失败")
                 emit(PaymentResult.Error("Failed to launch billing flow"))
+            } else {
+                Log.d(TAG, "✅ 购买流程已启动，等待用户操作...")
             }
             // 购买结果将通过 onPurchasesUpdated 回调处理
             
         } catch (e: Exception) {
+            Log.e(TAG, "❌ 支付流程异常", e)
             emit(PaymentResult.Error("Payment failed: ${e.message}", e))
         }
     }
@@ -91,35 +135,111 @@ class GooglePlayBillingManager @Inject constructor(
      * 初始化计费客户端
      */
     fun initialize() {
+        Log.d(TAG, "🔧 开始初始化GooglePlayBillingManager...")
+        
         if (billingClient == null) {
+            Log.d(TAG, "📦 创建新的BillingClient实例")
             @Suppress("DEPRECATION")
             billingClient = BillingClient.newBuilder(context)
                 .setListener(this)
                 .enablePendingPurchases() // Required for Google Play Billing Library 7.0.0
                 .build()
+            Log.d(TAG, "✅ BillingClient创建成功: $billingClient")
+        } else {
+            Log.d(TAG, "♻️ BillingClient已存在，跳过创建")
         }
         
+        Log.d(TAG, "🔗 开始连接到Google Play计费服务...")
         startConnection()
     }
     
     private fun startConnection() {
+        Log.d(TAG, "📡 调用BillingClient.startConnection()...")
         billingClient?.startConnection(this)
     }
     
     override fun onBillingSetupFinished(billingResult: BillingResult) {
+        Log.d(TAG, "📋 收到计费服务连接结果: responseCode=${billingResult.responseCode}")
+        Log.d(TAG, "📋 连接结果详情: ${billingResult.debugMessage}")
+        
         if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
             isServiceConnected = true
-            Log.d(TAG, "计费服务连接成功")
+            Log.d(TAG, "✅ 计费服务连接成功！")
+            Log.d(TAG, "🔍 BillingClient状态: isReady=${billingClient?.isReady}")
         } else {
-            Log.e(TAG, "计费服务连接失败: ${billingResult.debugMessage}")
+            isServiceConnected = false
+            Log.e(TAG, "❌ 计费服务连接失败: responseCode=${billingResult.responseCode}")
+            Log.e(TAG, "❌ 失败详情: ${billingResult.debugMessage}")
+            
+            // 🔧 开发测试模式：如果是API版本不支持的错误，启用模拟模式
+            if (billingResult.responseCode == BillingClient.BillingResponseCode.BILLING_UNAVAILABLE &&
+                billingResult.debugMessage?.contains("API version") == true &&
+                com.offtime.app.BuildConfig.DEBUG) {
+                
+                Log.w(TAG, "🧪 检测到Google Play API版本不兼容，启用开发测试模拟模式")
+                isServiceConnected = true // 模拟连接成功
+                return
+            }
+            
+            // 尝试重新连接（但限制重试次数）
+            if (retryCount < MAX_RETRY_COUNT) {
+                retryCount++
+                Log.d(TAG, "⏰ 5秒后尝试重新连接... (第${retryCount}次重试)")
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    Log.d(TAG, "🔄 开始重新连接计费服务...")
+                    startConnection()
+                }, 5000)
+            } else {
+                Log.e(TAG, "❌ 已达到最大重试次数($MAX_RETRY_COUNT)，停止重试")
+                if (com.offtime.app.BuildConfig.DEBUG) {
+                    Log.w(TAG, "🧪 Debug模式：启用模拟支付模式")
+                    isServiceConnected = true // Debug模式下启用模拟模式
+                }
+            }
         }
     }
     
     override fun onBillingServiceDisconnected() {
         isServiceConnected = false
-        Log.w(TAG, "计费服务连接断开")
+        Log.w(TAG, "⚠️ 计费服务连接断开")
+        
+        // 自动重连
+        Log.d(TAG, "🔄 计费服务断开，开始自动重连...")
+        startConnection()
     }
     
+    /**
+     * 查询可用的一次性购买商品
+     */
+    suspend fun queryInAppProducts(): List<ProductDetails> = suspendCancellableCoroutine { continuation ->
+        if (!isServiceConnected) {
+            Log.e(TAG, "计费服务未连接，无法查询产品")
+            continuation.resume(emptyList())
+            return@suspendCancellableCoroutine
+        }
+        
+        val productList = listOf(
+            QueryProductDetailsParams.Product.newBuilder()
+                .setProductId(PREMIUM_LIFETIME_SKU)
+                .setProductType(BillingClient.ProductType.INAPP) // 一次性购买
+                .build()
+        )
+        
+        val queryProductDetailsParams = QueryProductDetailsParams.newBuilder()
+            .setProductList(productList)
+            .build()
+        
+        billingClient?.queryProductDetailsAsync(queryProductDetailsParams) { billingResult, productDetailsList ->
+            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                Log.d(TAG, "查询一次性购买产品成功: ${productDetailsList.size} 个产品")
+                continuation.resume(productDetailsList)
+            } else {
+                Log.e(TAG, "查询一次性购买产品失败: ${billingResult.debugMessage}")
+                continuation.resume(emptyList())
+            }
+        }
+    }
+
     /**
      * 查询可用的订阅商品
      */

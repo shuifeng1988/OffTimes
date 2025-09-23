@@ -83,6 +83,10 @@ class PaymentViewModel @Inject constructor(
      * 处理付费
      */
     fun processPayment(activity: Activity) {
+        android.util.Log.d("PaymentViewModel", "🚀 开始处理支付请求")
+        android.util.Log.d("PaymentViewModel", "📱 Activity类型: ${activity.javaClass.simpleName}")
+        android.util.Log.d("PaymentViewModel", "💳 选择的支付方式: ${_uiState.value.selectedPaymentMethod}")
+        
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 isLoading = true,
@@ -90,18 +94,32 @@ class PaymentViewModel @Inject constructor(
             )
             
             val paymentManager = when (_uiState.value.selectedPaymentMethod) {
-                PaymentMethod.ALIPAY -> alipayPaymentManager
-                PaymentMethod.GOOGLE_PLAY -> googlePaymentManager
-                else -> null
+                PaymentMethod.ALIPAY -> {
+                    android.util.Log.d("PaymentViewModel", "🔍 使用支付宝支付管理器: $alipayPaymentManager")
+                    alipayPaymentManager
+                }
+                PaymentMethod.GOOGLE_PLAY -> {
+                    android.util.Log.d("PaymentViewModel", "🔍 使用Google Play支付管理器: $googlePaymentManager")
+                    googlePaymentManager
+                }
+                else -> {
+                    android.util.Log.e("PaymentViewModel", "❌ 未知的支付方式: ${_uiState.value.selectedPaymentMethod}")
+                    null
+                }
             }
 
             if (paymentManager == null) {
+                android.util.Log.e("PaymentViewModel", "❌ 支付管理器为空，无法处理支付")
                 _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = "Payment method not available")
                 return@launch
             }
 
             try {
+                android.util.Log.d("PaymentViewModel", "🛒 开始调用支付管理器.pay()方法")
+                android.util.Log.d("PaymentViewModel", "📦 产品ID: premium_lifetime")
+                
                 paymentManager.pay(activity, "premium_lifetime").collect { result ->
+                    android.util.Log.d("PaymentViewModel", "📥 收到支付结果: $result")
                     when (result) {
                         is PaymentResult.Loading -> _uiState.value = _uiState.value.copy(isLoading = true)
                         is PaymentResult.Success -> {
