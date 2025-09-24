@@ -18,6 +18,8 @@
   "author": "OffTimes",
   "license": "MIT",
   "dependencies": {
+    "@alicloud/dysmsapi20170525": "^4.2.0",
+    "@alicloud/openapi-client": "^0.4.15",
     "axios": "^1.5.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",

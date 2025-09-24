@@ -5,6 +5,7 @@ const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
 const { User, SmsCode, RefreshToken } = require('../config/database');
 const { Op } = require('sequelize');
+const { smsService } = require('../services/smsService');
 
 const router = express.Router();
 
@@ -47,11 +48,15 @@ function generateSmsCode() {
     return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// 模拟发送短信验证码
+// 发送短信验证码（使用阿里云短信服务）
 async function sendSmsCodeReal(phoneNumber, code) {
-    console.log(`模拟发送短信验证码: ${phoneNumber} -> ${code}`);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return true;
+    try {
+        const result = await smsService.sendSmsCode(phoneNumber, code);
+        return result;
+    } catch (error) {
+        console.error('发送短信验证码失败:', error);
+        return false;
+    }
 }
 
 // 验证手机号格式
@@ -68,6 +73,20 @@ const accountValidator = body('phoneNumber')
 const passwordValidator = body('password')
     .isLength({ min: 6 })
     .withMessage('密码长度至少6位');
+
+/**
+ * GET /api/auth/sms-status
+ * 检查短信服务状态（调试用）
+ */
+router.get('/sms-status', (req, res) => {
+    const status = smsService.getServiceStatus();
+    res.json({
+        code: 200,
+        message: '短信服务状态',
+        success: true,
+        data: status
+    });
+});
 
 /**
  * POST /api/auth/send-sms
@@ -638,6 +657,152 @@ router.post('/login-sms', [
 
     } catch (error) {
         console.error('验证码登录失败:', error);
+        res.status(500).json({
+            code: 500,
+            message: '服务器内部错误',
+            success: false
+        });
+    }
+});
+
+/**
+ * POST /api/auth/sms-login
+ * 短信验证码登录（合并注册和登录）
+ * 用户不存在时自动创建账号
+ */
+router.post('/sms-login', loginLimiter, [
+    phoneValidator,
+    body('code').isLength({ min: 6, max: 6 }).withMessage('验证码格式不正确'),
+    body('nickname').optional().isLength({ min: 1, max: 50 }).withMessage('昵称长度应在1-50个字符之间')
+], async (req, res) => {
+    try {
+        // 验证输入
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                code: 400,
+                message: errors.array()[0].msg,
+                success: false
+            });
+        }
+
+        const { phoneNumber, code, nickname } = req.body;
+
+        // 查找有效的验证码（支持login和register类型）
+        const smsCode = await SmsCode.findOne({
+            where: {
+                phone_number: phoneNumber,
+                code: code,
+                type: {
+                    [Op.in]: ['login', 'register']
+                },
+                is_used: false,
+                expires_at: {
+                    [Op.gt]: new Date()
+                }
+            },
+            order: [['created_at', 'DESC']]
+        });
+
+        if (!smsCode) {
+            return res.status(400).json({
+                code: 400,
+                message: '验证码无效或已过期',
+                success: false
+            });
+        }
+
+        // 标记验证码为已使用
+        await smsCode.update({ is_used: true });
+
+        // 查找或创建用户
+        let user = await User.findOne({ where: { phone_number: phoneNumber } });
+        
+        if (!user) {
+            // 用户不存在，自动创建
+            const defaultNickname = nickname || `用户${phoneNumber.slice(-4)}`;
+            
+            // 为SMS登录用户生成一个随机密码（用户不会使用，只是满足数据库约束）
+            const randomPassword = Math.random().toString(36).substring(2, 15);
+            const passwordHash = await bcrypt.hash(randomPassword, 12);
+            
+            user = await User.create({
+                phone_number: phoneNumber,
+                password_hash: passwordHash, // 添加必需的密码字段
+                nickname: defaultNickname,
+                last_login_time: new Date(),
+                is_active: true
+            });
+            
+            console.log(`✅ 自动创建新用户: ${phoneNumber} (${defaultNickname})`);
+        } else {
+            // 用户存在，更新最后登录时间
+            await user.update({ last_login_time: new Date() });
+            
+            // 如果提供了昵称且用户当前昵称为空或默认昵称，则更新
+            if (nickname && (
+                !user.nickname || 
+                user.nickname.startsWith('用户') || 
+                user.nickname === phoneNumber
+            )) {
+                await user.update({ nickname: nickname });
+            }
+        }
+
+        // 生成JWT令牌
+        const accessToken = jwt.sign(
+            { userId: user.id, phoneNumber: user.phone_number },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        const refreshToken = jwt.sign(
+            { userId: user.id },
+            JWT_REFRESH_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        // 保存刷新令牌
+        const newRefreshToken = await RefreshToken.create({
+            user_id: user.id,
+            token: refreshToken,
+            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7天
+        });
+
+        // 清理旧的刷新令牌
+        await RefreshToken.update(
+            { is_revoked: true },
+            {
+                where: {
+                    user_id: user.id,
+                    is_revoked: false,
+                    id: { [Op.ne]: newRefreshToken.id }
+                }
+            }
+        );
+
+        res.json({
+            code: 200,
+            message: user.createdAt && user.updatedAt && 
+                     Math.abs(user.createdAt.getTime() - user.updatedAt.getTime()) < 1000 ? 
+                     '注册并登录成功' : '登录成功',
+            success: true,
+            data: {
+                accessToken,
+                refreshToken,
+                user: {
+                    id: user.id,
+                    phoneNumber: user.phone_number,
+                    nickname: user.nickname,
+                    avatar: user.avatar,
+                    lastLoginTime: user.last_login_time
+                },
+                expiresIn: 86400000 // 24小时
+            }
+        });
+
+    } catch (error) {
+        console.error('短信验证码登录失败:', error);
         res.status(500).json({
             code: 500,
             message: '服务器内部错误',

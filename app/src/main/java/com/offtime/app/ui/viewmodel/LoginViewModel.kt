@@ -245,7 +245,7 @@ class LoginViewModel @Inject constructor(
     }
     
     /**
-     * 验证码登录
+     * 验证码登录（使用新的合并API）
      */
     fun loginWithSmsCode() {
         val currentState = _uiState.value
@@ -262,40 +262,24 @@ class LoginViewModel @Inject constructor(
             )
             
             try {
-                // 先验证验证码
-                val verifyResult = userRepository.verifySmsCode(
+                // 使用新的直接SMS登录API（合并注册和登录）
+                val loginResult = userRepository.directSmsLogin(
                     currentState.phoneNumber,
                     currentState.smsCode,
-                    "login"
+                    currentState.nickname.ifEmpty { null }
                 )
                 
-                verifyResult.fold(
-                    onSuccess = { verifyToken ->
-                        // 验证成功，进行登录
-                        val loginResult = userRepository.loginWithSmsCode(
-                            currentState.phoneNumber,
-                            verifyToken
-                        )
-                        
-                        loginResult.fold(
-                            onSuccess = {
-                                _uiState.value = _uiState.value.copy(
-                                    isLoading = false,
-                                    isLoginSuccess = true
-                                )
-                            },
-                            onFailure = { error ->
-                                _uiState.value = _uiState.value.copy(
-                                    isLoading = false,
-                                    errorMessage = error.message ?: "登录失败"
-                                )
-                            }
+                loginResult.fold(
+                    onSuccess = {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            isLoginSuccess = true
                         )
                     },
                     onFailure = { error ->
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
-                            errorMessage = error.message ?: "验证码验证失败"
+                            errorMessage = error.message ?: "登录失败"
                         )
                     }
                 )

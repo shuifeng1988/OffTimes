@@ -65,13 +65,13 @@ object DateLocalizer {
      */
     fun getCategoryName(context: Context, categoryName: String): String {
         return when {
-            categoryName == "娱乐" -> context.getString(R.string.category_entertainment)
-            categoryName == "学习" -> context.getString(R.string.category_study)
-            categoryName == "健身" -> context.getString(R.string.category_fitness)
-            categoryName == "总使用" -> context.getString(R.string.category_total_usage)
-            categoryName == "工作" -> context.getString(R.string.category_work)
-            categoryName == "其他" -> context.getString(R.string.category_other)
-            categoryName == "未知分类" -> context.getString(R.string.category_unknown)
+            categoryName == "娱乐" || categoryName == "Entertainment" -> context.getString(R.string.category_entertainment)
+            categoryName == "学习" || categoryName == "Study" || categoryName == "Education" -> context.getString(R.string.category_study)
+            categoryName == "健身" || categoryName == "Fitness" -> context.getString(R.string.category_fitness)
+            categoryName == "总使用" || categoryName == "Total Usage" -> context.getString(R.string.category_total_usage)
+            categoryName == "工作" || categoryName == "Work" -> context.getString(R.string.category_work)
+            categoryName == "其他" || categoryName == "Other" -> context.getString(R.string.category_other)
+            categoryName == "未知分类" || categoryName == "Unknown Category" -> context.getString(R.string.category_unknown)
             // 处理线下活动的本地化 - 使用UnifiedTextManager的语言判断
             categoryName == "线下娱乐" -> if (UnifiedTextManager.isEnglish()) "Offline-Ent" else "线下娱乐"
             categoryName == "线下学习" -> if (UnifiedTextManager.isEnglish()) "Offline-Edu" else "线下学习"
@@ -117,13 +117,13 @@ object DateLocalizer {
      */
     fun getCategoryNameFull(context: Context, categoryName: String): String {
         return when {
-            categoryName == "娱乐" -> context.getString(R.string.category_entertainment_full)
-            categoryName == "学习" -> context.getString(R.string.category_study_full)
-            categoryName == "健身" -> context.getString(R.string.category_fitness_full)
-            categoryName == "总使用" -> context.getString(R.string.category_total_usage_full)
-            categoryName == "工作" -> context.getString(R.string.category_work_full)
-            categoryName == "其他" -> context.getString(R.string.category_other_full)
-            categoryName == "未知分类" -> context.getString(R.string.category_unknown_full)
+            categoryName == "娱乐" || categoryName == "Entertainment" -> context.getString(R.string.category_entertainment_full)
+            categoryName == "学习" || categoryName == "Study" || categoryName == "Education" -> context.getString(R.string.category_study_full)
+            categoryName == "健身" || categoryName == "Fitness" -> context.getString(R.string.category_fitness_full)
+            categoryName == "总使用" || categoryName == "Total Usage" -> context.getString(R.string.category_total_usage_full)
+            categoryName == "工作" || categoryName == "Work" -> context.getString(R.string.category_work_full)
+            categoryName == "其他" || categoryName == "Other" -> context.getString(R.string.category_other_full)
+            categoryName == "未知分类" || categoryName == "Unknown Category" -> context.getString(R.string.category_unknown_full)
             // 处理线下活动的本地化 - 使用全称
             categoryName == "线下娱乐" -> if (UnifiedTextManager.isEnglish()) "Offline-Entertainment" else "线下娱乐"
             categoryName == "线下学习" -> if (UnifiedTextManager.isEnglish()) "Offline-Education" else "线下学习"

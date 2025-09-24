@@ -15,8 +15,8 @@ android {
     defaultConfig {
         minSdk = 24
         targetSdk = 35
-        versionCode = 26
-        versionName = "1.4.1"
+        versionCode = 28
+        versionName = "1.4.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -85,6 +85,8 @@ android {
         debug {
             // Debug版本禁用Google登录，避免配置问题
             buildConfigField("boolean", "ENABLE_GOOGLE_LOGIN", "false")
+            isMinifyEnabled = false
+            isDebuggable = true
         }
         release {
             isMinifyEnabled = true
@@ -94,20 +96,22 @@ android {
                 "proguard-rules.pro"
             )
             signingConfig = signingConfigs.getByName("release")
+            
             // 为Google Play Console生成调试符号
             ndk {
                 debugSymbolLevel = "FULL"
             }
+            
             // 确保生成mapping文件用于崩溃分析
             isDebuggable = false
             isJniDebuggable = false
             isRenderscriptDebuggable = false
+            
+            // 保留关键调试信息用于生产环境问题排查
+            buildConfigField("boolean", "ENABLE_RELEASE_LOGGING", "true")
+            
             // 启用崩溃报告
             manifestPlaceholders["crashlyticsCollectionEnabled"] = true
-        }
-        debug {
-            isMinifyEnabled = false
-            isDebuggable = true
         }
     }
     

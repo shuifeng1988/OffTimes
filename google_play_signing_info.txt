@@ -1,0 +1,45 @@
+🔐 OffTimes Google Play 版本签名信息
+=====================================
+
+📱 应用信息
+-----------
+安卓平台软件包名称: com.offtime.app.gplay
+应用版本: 1.4.3-gplay (Build 28)
+
+🔑 证书信息
+-----------
+证书DN: CN=OffTime App, OU=Development, O=OffTime Studio, L=Kunming, ST=Yunnan, C=CN
+密钥算法: RSA
+密钥长度: 2048 bits
+
+📊 证书指纹
+-----------
+MD5指纹:    ad5b80a6280177728ba63341ec408266
+SHA-1指纹:  f3109a7a3eec591276a8620e35f1a8b29cfa2e16
+SHA-256指纹: 35851b25cdddebee10e9b54801ed48d1fcfdbc27ff79464dfb0cb91150538b87
+
+🔐 公钥指纹
+-----------
+公钥MD5:    ad0cf88f5e3c7a93b122c46a6fd47580
+公钥SHA-1:  ea057d2ccddbc7275211ddf8b8ba6dbed125a45d
+公钥SHA-256: 773d7f98996bd47bd102eb9bbca8e6974b1a47b77bd841f3194a53d245812fc4
+
+📋 Google Play Console 填写信息
+===============================
+
+1. 具体使用的域名: offtimes.cn
+
+2. 安卓平台软件包名称: com.offtime.app.gplay
+
+3. 公钥: 
+   需要完整的公钥内容 (PEM格式)
+   
+4. 证书MD5指纹: ad5b80a6280177728ba63341ec408266
+
+注意：
+- 公钥需要完整的PEM格式内容，包含 -----BEGIN PUBLIC KEY----- 和 -----END PUBLIC KEY-----
+- MD5指纹已经提取完成，可以直接使用
+- 这些信息用于Google Play Console的"特征信息"配置
+
+生成时间: $(date)
+APK文件: app/build/outputs/apk/googleplay/release/app-googleplay-release.apk

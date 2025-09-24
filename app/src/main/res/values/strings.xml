@@ -240,6 +240,8 @@
     <string name="login_sending_code">发送中...</string>
     <string name="login_send_code">发送验证码</string>
     <string name="login_send_sms_failed">发送验证码失败</string>
+    <string name="login_nickname_optional">昵称（可选）</string>
+    <string name="login_nickname_placeholder">设置您的昵称</string>
     <string name="no_account">没有账户？</string>
     <string name="has_account">已有账户？</string>
     <string name="register_now">立即注册</string>
@@ -882,9 +884,13 @@
     <string name="version_name">版本名称</string>
     <string name="version_code">版本号</string>
     <string name="build_type">构建类型</string>
+    <string name="build_type_debug">调试版</string>
+    <string name="build_type_release">发布版</string>
     <string name="application_id">应用包名</string>
     <string name="target_sdk">目标SDK</string>
     <string name="min_sdk">最低SDK</string>
+    <string name="target_sdk_value">Android 15 (API 35)</string>
+    <string name="min_sdk_value">Android 7.0 (API 24)</string>
     <string name="features">功能特性</string>
     <string name="feature_usage_tracking">应用使用时间跟踪</string>
     <string name="feature_goal_setting">目标设置与提醒</string>
@@ -892,4 +898,5 @@
     <string name="feature_premium_upgrade">高级功能升级</string>
     <string name="feature_google_play">Google Play支付</string>
     <string name="feature_alipay">支付宝支付</string>
+    <string name="copyright_text">© 2024 OffTimes. 保留所有权利。</string>
 </resources> 

@@ -65,6 +65,14 @@ class OffTimeLockScreenWidget : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
+        // 清除语言缓存，确保Widget使用最新的语言设置
+        try {
+            com.offtime.app.utils.UnifiedTextManager.clearLanguageCache()
+            android.util.Log.d("LockScreenWidget", "Widget更新时已清除语言缓存")
+        } catch (e: Exception) {
+            android.util.Log.w("LockScreenWidget", "清除语言缓存失败: ${e.message}")
+        }
+        
         // 为每个小部件实例更新内容
         for (appWidgetId in appWidgetIds) {
             updateAppWidget(context, appWidgetManager, appWidgetId)
@@ -207,14 +215,14 @@ class OffTimeLockScreenWidget : AppWidgetProvider() {
         // 获取本地化的Context
         val localizedContext = getLocalizedContext(context)
         
-        // 设置分类图标和名称
+        // 设置分类图标和名称（支持中英文分类名称）
         val categoryIcon = when (currentCategory.name) {
-            "娱乐" -> "🎮"
-            "学习" -> "📚"
-            "健身" -> "💪"
-            "总使用" -> "📱"
-            "工作" -> "💼"
-            "其他" -> "📱"
+            "娱乐", "Entertainment" -> "🎮"
+            "学习", "Study", "Education" -> "📚"
+            "健身", "Fitness" -> "💪"
+            "总使用", "Total Usage" -> "📱"
+            "工作", "Work" -> "💼"
+            "其他", "Other" -> "📱"
             else -> "📁"
         }
         views.setTextViewText(R.id.widget_category_icon, categoryIcon)

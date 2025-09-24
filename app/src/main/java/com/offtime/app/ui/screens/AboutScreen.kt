@@ -130,7 +130,7 @@ fun AboutScreen(
                     
                     VersionInfoRow(
                         label = stringResource(R.string.build_type),
-                        value = if (BuildConfig.DEBUG) "Debug" else "Release"
+                        value = if (BuildConfig.DEBUG) stringResource(R.string.build_type_debug) else stringResource(R.string.build_type_release)
                     )
                     
                     VersionInfoRow(
@@ -140,12 +140,12 @@ fun AboutScreen(
                     
                     VersionInfoRow(
                         label = stringResource(R.string.target_sdk),
-                        value = "Android 15 (API 35)"
+                        value = stringResource(R.string.target_sdk_value)
                     )
                     
                     VersionInfoRow(
                         label = stringResource(R.string.min_sdk),
-                        value = "Android 7.0 (API 24)"
+                        value = stringResource(R.string.min_sdk_value)
                     )
                 }
             }
@@ -186,7 +186,7 @@ fun AboutScreen(
             
             // Copyright
             Text(
-                text = "© 2024 OffTimes. All rights reserved.",
+                text = stringResource(R.string.copyright_text),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                 textAlign = TextAlign.Center

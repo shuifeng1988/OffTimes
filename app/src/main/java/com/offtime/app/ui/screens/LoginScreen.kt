@@ -507,15 +507,29 @@ fun LoginScreen(
             }
         }
         
-        // 注册模式下的昵称输入（可选）
-        if (uiState.isRegisterMode) {
+        // SMS登录模式或注册模式下的昵称输入（可选）
+        if (uiState.isRegisterMode || uiState.loginType == LoginType.SMS_CODE) {
             Spacer(modifier = Modifier.height(verticalSpacing))
             
             OutlinedTextField(
                 value = uiState.nickname,
                 onValueChange = viewModel::setNickname,
-                label = { Text("昵称（可选）") },
-                placeholder = { Text("设置您的昵称") },
+                label = { 
+                    Text(
+                        if (uiState.loginType == LoginType.SMS_CODE) 
+                            stringResource(R.string.login_nickname_optional)
+                        else 
+                            "昵称（可选）"
+                    ) 
+                },
+                placeholder = { 
+                    Text(
+                        if (uiState.loginType == LoginType.SMS_CODE) 
+                            stringResource(R.string.login_nickname_placeholder)
+                        else 
+                            "设置您的昵称"
+                    ) 
+                },
                 leadingIcon = {
                     Icon(Icons.Default.Person, contentDescription = null)
                 },
@@ -605,8 +619,9 @@ fun LoginScreen(
         
         Spacer(modifier = Modifier.height(verticalSpacing))
         
-        // 登录/注册模式切换（Google Play纯登录版本不显示）
-        if (!(BuildConfig.ENABLE_GOOGLE_LOGIN && !BuildConfig.ENABLE_SMS_LOGIN && !BuildConfig.ENABLE_PASSWORD_LOGIN)) {
+        // 登录/注册模式切换（SMS登录模式和Google Play纯登录版本不显示）
+        if (uiState.loginType != LoginType.SMS_CODE && 
+            !(BuildConfig.ENABLE_GOOGLE_LOGIN && !BuildConfig.ENABLE_SMS_LOGIN && !BuildConfig.ENABLE_PASSWORD_LOGIN)) {
             Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center

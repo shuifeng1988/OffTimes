@@ -347,6 +347,72 @@ class UserRepository @Inject constructor(
     }
     
     /**
+     * 直接SMS登录（合并注册和登录）
+     * @param phoneNumber 手机号
+     * @param code 验证码
+     * @param nickname 昵称（可选）
+     * @return 登录结果
+     */
+    suspend fun directSmsLogin(phoneNumber: String, code: String, nickname: String? = null): Result<UserEntity> {
+        return try {
+            val response = userApiService.smsLogin(
+                DirectSmsLoginRequest(phoneNumber, code, nickname)
+            )
+            
+            if (response.isSuccessful && response.body()?.success == true) {
+                val authResponse = response.body()?.data!!
+                
+                // 保存token
+                saveTokens(authResponse.accessToken, authResponse.refreshToken, authResponse.expiresIn)
+                
+                // 更新或创建本地用户
+                val existingUser = userDao.getUserByPhoneNumber(phoneNumber)
+                val user = if (existingUser != null) {
+                    existingUser.copy(
+                        nickname = authResponse.user.nickname,
+                        avatar = authResponse.user.avatar,
+                        isLoggedIn = true,
+                        lastLoginTime = System.currentTimeMillis(),
+                        serverUserId = authResponse.user.userId,
+                        isDataSyncEnabled = true
+                    )
+                } else {
+                    // 新用户开始7天免费试用
+                    val currentTime = System.currentTimeMillis()
+                    UserEntity(
+                        userId = UUID.randomUUID().toString(),
+                        phoneNumber = phoneNumber,
+                        passwordHash = "",
+                        nickname = authResponse.user.nickname,
+                        avatar = authResponse.user.avatar,
+                        isLoggedIn = true,
+                        lastLoginTime = currentTime,
+                        registerTime = authResponse.user.registerTime,
+                        serverUserId = authResponse.user.userId,
+                        isDataSyncEnabled = true,
+                        isPremium = false,
+                        trialStartTime = currentTime,
+                        subscriptionStatus = UserEntity.STATUS_TRIAL,
+                        paymentTime = 0L,
+                        paymentAmount = 0,
+                        alipayUserId = ""
+                    )
+                }
+                
+                // 保存用户到数据库
+                userDao.insertUser(user)
+                
+                Result.success(user)
+            } else {
+                val errorMessage = response.body()?.message ?: "登录失败"
+                Result.failure(Exception(errorMessage))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
      * 验证码登录
      * @param phoneNumber 手机号
      * @param verifyToken 验证token

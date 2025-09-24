@@ -93,6 +93,14 @@ class OffTimeApplication : Application() {
             // 非首次启动且引导完成，启动正常服务
             startDataCollectionServices()
             
+            // 刷新Widget以确保显示正确的语言
+            try {
+                com.offtime.app.widget.OffTimeLockScreenWidget.refreshAllWidgets(this)
+                android.util.Log.d("OffTimeApplication", "应用启动时已刷新Widget")
+            } catch (e: Exception) {
+                android.util.Log.w("OffTimeApplication", "刷新Widget失败: ${e.message}")
+            }
+            
             // 后台检查并初始化数据（避免用户数据丢失）
             @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
             GlobalScope.launch {

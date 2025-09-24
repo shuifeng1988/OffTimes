@@ -62,6 +62,14 @@ interface UserApiService {
     suspend fun loginWithSmsCode(@Body request: SmsLoginRequest): Response<ApiResponse<AuthResponse>>
     
     /**
+     * SMS登录（合并注册和登录）
+     * @param request SMS登录请求体
+     * @return API响应结果，包含用户信息和token
+     */
+    @POST("auth/sms-login")
+    suspend fun smsLogin(@Body request: DirectSmsLoginRequest): Response<ApiResponse<AuthResponse>>
+    
+    /**
      * 支付宝登录
      * @param request 支付宝登录请求体
      * @return API响应结果，包含用户信息和token
@@ -258,6 +266,15 @@ data class LoginRequest(
 data class SmsLoginRequest(
     val phoneNumber: String,
     val verifyToken: String
+)
+
+/**
+ * 直接SMS登录请求（合并注册和登录）
+ */
+data class DirectSmsLoginRequest(
+    val phoneNumber: String,
+    val code: String,
+    val nickname: String? = null
 )
 
 /**
