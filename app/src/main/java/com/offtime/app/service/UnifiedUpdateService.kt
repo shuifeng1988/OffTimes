@@ -16,6 +16,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
+import android.os.PowerManager
+import android.content.Context
+import android.app.AlarmManager
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.os.SystemClock
 import com.offtime.app.data.repository.AppSessionRepository
 import com.offtime.app.manager.DataUpdateManager
 import com.offtime.app.utils.DataCleanupManager
@@ -52,7 +60,6 @@ class UnifiedUpdateService : Service() {
         
         private const val TAG = "UnifiedUpdateService"
         private const val UPDATE_INTERVAL_MS = 30_000L   // 30秒更新间隔
-        private const val QUICK_UPDATE_INTERVAL_MS = 10_000L  // 快速更新间隔（活跃应用）
         private const val NOTIFICATION_ID = 2002
         private const val CHANNEL_ID = "unified_update_channel"
         
@@ -137,11 +144,19 @@ class UnifiedUpdateService : Service() {
     @Inject
     lateinit var dataCleanupManager: DataCleanupManager
     
-    // 服务协程作用域
+    // 服务协程作用域 - 使用更强的生命周期管理
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var periodicUpdateJob: Job? = null
     
     // 定时更新控制标志
     private var isPeriodicUpdateRunning = false
+    
+    // WakeLock 防止系统休眠影响定时更新
+    private var wakeLock: PowerManager.WakeLock? = null
+    
+    // AlarmManager 备用唤醒机制
+    private var alarmManager: AlarmManager? = null
+    private var alarmPendingIntent: PendingIntent? = null
     
     override fun onCreate() {
         super.onCreate()
@@ -152,19 +167,24 @@ class UnifiedUpdateService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        android.util.Log.d(TAG, "🚀 onStartCommand called with action: ${intent?.action}")
         when (intent?.action) {
             ACTION_START_UNIFIED_UPDATE -> {
+                android.util.Log.d(TAG, "🎯 处理 ACTION_START_UNIFIED_UPDATE")
                 // 启动前台服务
                 startForeground(NOTIFICATION_ID, createNotification())
                 startPeriodicUpdate()
             }
             ACTION_STOP_UNIFIED_UPDATE -> {
+                android.util.Log.d(TAG, "🛑 处理 ACTION_STOP_UNIFIED_UPDATE")
                 stopPeriodicUpdate()
                 stopSelf(startId)
             }
             ACTION_MANUAL_UPDATE -> {
+                android.util.Log.d(TAG, "🔄 处理 ACTION_MANUAL_UPDATE")
                 // 如果定时更新没有运行，先启动前台服务和定时循环
                 if (!isPeriodicUpdateRunning) {
+                    android.util.Log.d(TAG, "⚡ 定时更新未运行，启动前台服务和定时循环")
                     startForeground(NOTIFICATION_ID, createNotification())
                     startPeriodicUpdate()
                 }
@@ -173,6 +193,20 @@ class UnifiedUpdateService : Service() {
                 serviceScope.launch {
                     performUnifiedUpdate(DataUpdateManager.UPDATE_TYPE_MANUAL)
                 }
+            }
+            "CHECK_SERVICE_STATUS" -> {
+                android.util.Log.d(TAG, "🔍 检查服务状态 - 协程运行: $isPeriodicUpdateRunning")
+                // 只有当协程真的停止了才重新启动
+                if (!isPeriodicUpdateRunning) {
+                    android.util.Log.w(TAG, "⚠️ 检测到协程已停止，重新启动服务")
+                    startForeground(NOTIFICATION_ID, createNotification())
+                    startPeriodicUpdate()
+                } else {
+                    android.util.Log.d(TAG, "✅ 协程正常运行，无需重启")
+                }
+            }
+            else -> {
+                android.util.Log.w(TAG, "⚠️ 未知的action: ${intent?.action}")
             }
         }
         return START_STICKY  // 服务被杀死后自动重启
@@ -183,35 +217,67 @@ class UnifiedUpdateService : Service() {
      */
     private fun startPeriodicUpdate() {
         if (isPeriodicUpdateRunning) {
-            Log.d(TAG, "定时更新已在运行中")
+            android.util.Log.d(TAG, "⏰ 定时更新已在运行中")
             return
         }
         
-        isPeriodicUpdateRunning = true
-        Log.d(TAG, "启动定时更新机制 - 每${UPDATE_INTERVAL_MS / 1000}秒完整更新，每${QUICK_UPDATE_INTERVAL_MS / 1000}秒快速更新")
+        // 获取WakeLock防止系统休眠
+        acquireWakeLock()
         
-        serviceScope.launch {
-            // 立即执行一次更新
-            performUnifiedUpdate(DataUpdateManager.UPDATE_TYPE_PERIODIC)
-            
-            var quickUpdateCounter = 0
-            
-            // 开始定时循环
-            while (isPeriodicUpdateRunning) {
-                // 使用更短的间隔检查，但不是每次都执行完整更新
-                delay(QUICK_UPDATE_INTERVAL_MS)
-                quickUpdateCounter++
+        // 启动AlarmManager备用唤醒机制
+        startAlarmManagerBackup()
+        
+        isPeriodicUpdateRunning = true
+        android.util.Log.d(TAG, "🚀 启动定时更新机制 - 每${UPDATE_INTERVAL_MS / 1000}秒完整更新")
+        
+        // 取消之前的任务
+        periodicUpdateJob?.cancel()
+        
+        // 启动新的协程任务
+        periodicUpdateJob = serviceScope.launch {
+            try {
+                android.util.Log.d(TAG, "🎯 协程启动成功，开始执行定时循环")
+                // 立即执行一次更新
+                val startTime = System.currentTimeMillis()
+                performUnifiedUpdate(DataUpdateManager.UPDATE_TYPE_PERIODIC)
                 
-                if (isPeriodicUpdateRunning) {
-                    if (quickUpdateCounter >= 3) {  // 30秒 = 3 * 10秒
-                        // 完整更新
+                // 开始定时循环 - 严格按30秒间隔执行完整更新
+                var nextUpdateTime = startTime + UPDATE_INTERVAL_MS
+                
+                while (isPeriodicUpdateRunning && isActive) {
+                    val currentTime = System.currentTimeMillis()
+                    val waitTime = nextUpdateTime - currentTime
+                    
+                    if (waitTime > 0) {
+                        android.util.Log.d(TAG, "⏱️ 等待${waitTime}ms后执行下次更新，协程活跃: $isActive")
+                        delay(waitTime)
+                    }
+                    
+                    // 双重检查：既检查标志位也检查协程状态
+                    if (isPeriodicUpdateRunning && isActive) {
+                        android.util.Log.d(TAG, "🔄 执行完整更新 (严格30秒周期)")
                         performUnifiedUpdate(DataUpdateManager.UPDATE_TYPE_PERIODIC)
-                        quickUpdateCounter = 0
-                    } else {
-                        // 快速更新：只更新活跃应用
-                        performQuickActiveAppsUpdate()
+                        
+                        // 计算下次更新时间，确保严格30秒间隔
+                        nextUpdateTime += UPDATE_INTERVAL_MS
                     }
                 }
+                android.util.Log.d(TAG, "🛑 定时循环结束")
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "❌ 定时循环异常", e)
+                isPeriodicUpdateRunning = false
+                
+                // 异常时尝试重启（除非是取消异常）
+                if (e !is kotlinx.coroutines.CancellationException) {
+                    android.util.Log.w(TAG, "🔄 尝试重启定时循环")
+                    delay(5000) // 等待5秒后重试
+                    if (!isPeriodicUpdateRunning && isActive) {
+                        startPeriodicUpdate()
+                    }
+                }
+            } finally {
+                // 释放WakeLock
+                releaseWakeLock()
             }
         }
     }
@@ -221,7 +287,10 @@ class UnifiedUpdateService : Service() {
      */
     private fun stopPeriodicUpdate() {
         isPeriodicUpdateRunning = false
-        Log.d(TAG, "停止定时更新机制")
+        periodicUpdateJob?.cancel()
+        stopAlarmManagerBackup()
+        releaseWakeLock()
+        android.util.Log.d(TAG, "🛑 停止定时更新机制")
     }
     
     /**
@@ -296,11 +365,11 @@ class UnifiedUpdateService : Service() {
         try {
             Log.d(TAG, "开始收集原始使用数据")
             
-            // 1. 触发UsageStatsCollectorService拉取最新事件
-            UsageStatsCollectorService.triggerEventsPull(this)
+            // 1. 触发UsageStatsCollectorService统一更新（事件拉取 + 活跃应用更新）
+            UsageStatsCollectorService.triggerUnifiedUpdate(this)
             
-            // 等待事件拉取完成（缩短延迟）
-            delay(500)
+            // 等待统一更新完成
+            delay(300)
             
             Log.d(TAG, "原始使用数据收集完成")
             
@@ -317,16 +386,10 @@ class UnifiedUpdateService : Service() {
         try {
             Log.d(TAG, "更新基础数据表开始")
             
-            // 1. 处理跨日期活跃会话（重要：必须在触发活跃应用更新之前处理）
+            // 1. 处理跨日期活跃会话
             handleCrossDayActiveSessions()
             
-            // 2. 触发更新当前活跃应用的使用时长
-            UsageStatsCollectorService.triggerActiveAppsUpdate(this)
-            
-            // 等待活跃应用更新完成（缩短延迟）
-            delay(300)
-            
-            // 3. 确保默认表存在
+            // 2. 确保默认表存在
             appSessionRepository.initializeDefaultTableIfEmpty()
             
             Log.d(TAG, "基础数据表更新完成")
@@ -397,17 +460,11 @@ class UnifiedUpdateService : Service() {
             if (shouldHandleCrossDay) {
                 Log.d(TAG, "发现跨日期活跃会话，开始处理")
                 
-                // 1. 强制保存当前活跃会话到当前时间 - 这是导致问题的根源，予以注释
-                // forceFlushActiveSessions()
+                // 移除重复的事件拉取，依赖collectRawUsageData()已拉取的最新事件
+                // 跨日期会话处理逻辑由数据库层面的时间检查自动处理
                 
-                // 2. 通过拉取事件的方式触发会话保存
-                // 这会让UsageStatsCollectorService检查并保存当前活跃的会话
-                val pullEventsIntent = Intent(this, UsageStatsCollectorService::class.java)
-                pullEventsIntent.action = UsageStatsCollectorService.ACTION_PULL_EVENTS
-                startService(pullEventsIntent)
-                
-                // 等待事件处理完成
-                delay(3000)
+                // 等待前面拉取的事件处理完成（进一步优化：减少延迟时间）
+                delay(200)
                 
                 Log.d(TAG, "跨日期活跃会话处理完成")
             } else {
@@ -508,42 +565,220 @@ class UnifiedUpdateService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         stopPeriodicUpdate()
-        Log.d(TAG, "统一更新服务已销毁")
+        releaseWakeLock()
+        android.util.Log.d(TAG, "🔥 统一更新服务已销毁")
+    }
+    
+    /**
+     * 获取WakeLock防止系统休眠
+     * 针对真实手机加强保活策略
+     */
+    private fun acquireWakeLock() {
+        try {
+            if (wakeLock == null) {
+                val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+                wakeLock = powerManager.newWakeLock(
+                    PowerManager.PARTIAL_WAKE_LOCK,
+                    "OffTimes:UnifiedUpdateService"
+                )
+            }
+            
+            if (wakeLock?.isHeld != true) {
+                // 针对真实手机：延长WakeLock超时时间到30分钟
+                // 确保在长时间后台运行时不会被释放
+                wakeLock?.acquire(30 * 60 * 1000L) // 30分钟超时
+                android.util.Log.d(TAG, "🔋 WakeLock已获取 (30分钟超时)")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "❌ 获取WakeLock失败", e)
+        }
+    }
+    
+    /**
+     * 释放WakeLock
+     */
+    private fun releaseWakeLock() {
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+                android.util.Log.d(TAG, "🔋 WakeLock已释放")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "❌ 释放WakeLock失败", e)
+        }
+    }
+    
+    /**
+     * 启动AlarmManager备用唤醒机制
+     */
+    private fun startAlarmManagerBackup() {
+        try {
+            if (alarmManager == null) {
+                alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            }
+            
+            if (alarmPendingIntent == null) {
+                val intent = android.content.Intent(this, AlarmReceiver::class.java)
+                alarmPendingIntent = PendingIntent.getBroadcast(
+                    this, 
+                    0, 
+                    intent, 
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            }
+            
+            // 针对真实手机：使用更频繁的唤醒间隔（45秒）
+            // 确保在Doze模式和应用待机时也能唤醒
+            val alarmInterval = 45_000L // 45秒
+            
+            // 使用setExactAndAllowWhileIdle确保在Doze模式下也能唤醒
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                // Android 6.0+ 使用精确闹钟，即使在Doze模式下也会触发
+                alarmManager?.setExactAndAllowWhileIdle(
+                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                    SystemClock.elapsedRealtime() + alarmInterval,
+                    alarmPendingIntent!!
+                )
+                android.util.Log.d(TAG, "⏰ AlarmManager精确唤醒机制已启动 (45秒间隔, 支持Doze模式)")
+            } else {
+                // Android 5.x 及以下使用普通重复闹钟
+                alarmManager?.setRepeating(
+                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                    SystemClock.elapsedRealtime() + alarmInterval,
+                    alarmInterval,
+                    alarmPendingIntent!!
+                )
+                android.util.Log.d(TAG, "⏰ AlarmManager重复唤醒机制已启动 (45秒间隔)")
+            }
+            
+            android.util.Log.d(TAG, "⏰ AlarmManager备用唤醒机制已启动")
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "❌ 启动AlarmManager失败", e)
+        }
+    }
+    
+    /**
+     * 停止AlarmManager备用唤醒机制
+     */
+    private fun stopAlarmManagerBackup() {
+        try {
+            alarmPendingIntent?.let { pendingIntent ->
+                alarmManager?.cancel(pendingIntent)
+                android.util.Log.d(TAG, "⏰ AlarmManager备用唤醒机制已停止")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "❌ 停止AlarmManager失败", e)
+        }
+    }
+    
+    /**
+     * AlarmManager广播接收器
+     * 针对真实手机加强保活策略
+     */
+    class AlarmReceiver : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: android.content.Intent) {
+            android.util.Log.d(TAG, "⏰ AlarmManager唤醒触发，检查服务状态")
+            
+            // 检查服务是否还在运行以及协程是否活跃
+            val serviceIntent = android.content.Intent(context, UnifiedUpdateService::class.java)
+            serviceIntent.action = "CHECK_SERVICE_STATUS"
+            
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    context.startForegroundService(serviceIntent)
+                } else {
+                    context.startService(serviceIntent)
+                }
+                android.util.Log.d(TAG, "⏰ AlarmManager检查服务状态")
+                
+                // 重新设置下一次闹钟（针对setExactAndAllowWhileIdle只触发一次的特性）
+                scheduleNextAlarm(context)
+                
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "❌ AlarmManager检查服务失败", e)
+            }
+        }
+        
+        /**
+         * 设置下一次AlarmManager唤醒
+         */
+        private fun scheduleNextAlarm(context: Context) {
+            try {
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val intent = android.content.Intent(context, AlarmReceiver::class.java)
+                val pendingIntent = PendingIntent.getBroadcast(
+                    context, 
+                    0, 
+                    intent, 
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                
+                val alarmInterval = 45_000L // 45秒
+                
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                        SystemClock.elapsedRealtime() + alarmInterval,
+                        pendingIntent
+                    )
+                    android.util.Log.d(TAG, "⏰ 已设置下一次精确唤醒 (45秒后)")
+                } else {
+                    alarmManager.set(
+                        AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                        SystemClock.elapsedRealtime() + alarmInterval,
+                        pendingIntent
+                    )
+                    android.util.Log.d(TAG, "⏰ 已设置下一次唤醒 (45秒后)")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "❌ 设置下一次闹钟失败", e)
+            }
+        }
     }
     
     /**
      * 创建通知渠道
+     * 针对真实手机提升重要性以增强保活能力
      */
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "统一数据更新",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_DEFAULT // 提升到DEFAULT级别
             ).apply {
-                description = "每分钟统一更新应用数据"
+                description = "后台收集应用使用数据和统计应用使用时间 - 30秒更新"
                 setShowBadge(false)
                 setSound(null, null)
                 enableVibration(false)
+                // 设置为系统级别的重要性，减少被杀死的可能性
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
             
             val notificationManager = getSystemService(NotificationManager::class.java)
             notificationManager?.createNotificationChannel(channel)
-            Log.d(TAG, "通知渠道已创建")
+            Log.d(TAG, "通知渠道已创建 (DEFAULT重要性)")
         }
     }
     
     /**
      * 创建前台服务通知
+     * 针对真实手机增强保活能力
      */
     private fun createNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("OffTimes 数据更新")
-            .setContentText("正在每分钟自动更新使用统计数据")
+            .setContentText("后台收集应用使用数据和统计应用使用时间 - 30秒更新")
             .setSmallIcon(R.drawable.ic_notification) // 确保这个图标存在
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT) // 与通知渠道保持一致
             .setOngoing(true) // 用户无法滑动删除
             .setSilent(true) // 静默通知
             .setShowWhen(false)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // 锁屏可见
+            .setAutoCancel(false) // 不可自动取消
+            .setLocalOnly(true) // 本地通知，不同步到其他设备
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE) // 立即显示
             .build()
     }
     

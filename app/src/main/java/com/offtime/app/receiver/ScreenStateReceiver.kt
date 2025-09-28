@@ -53,25 +53,24 @@ class ScreenStateReceiver : BroadcastReceiver() {
 
             Intent.ACTION_SCREEN_ON -> {
                 Log.d(TAG, "屏幕点亮，触发数据更新")
-                // 屏幕点亮时，确保服务运行并触发完整数据更新
-                ensureServiceRunningAndPullEvents(context, firstLaunchManager)
-                // 🔧 新增：使用数据更新事件管理器触发亮屏数据更新
+                // 屏幕点亮时，确保服务运行
+                startUsageStatsCollectionIfReady(context, "屏幕点亮", firstLaunchManager)
+                // 统一通过UnifiedUpdateService进行数据更新
                 dataUpdateEventManager.triggerScreenOnUpdate(context)
             }
 
             Intent.ACTION_SCREEN_OFF -> {
                 Log.d(TAG, "屏幕关闭，触发数据更新")
-                // 屏幕关闭时，拉取事件并触发轻量级数据更新
-                pullEventsIfServiceRunning(context)
-                // 🔧 新增：使用数据更新事件管理器触发熄屏数据更新
+                // 统一通过UnifiedUpdateService进行数据更新
                 dataUpdateEventManager.triggerScreenOffUpdate(context)
             }
 
             Intent.ACTION_PACKAGE_ADDED,
             Intent.ACTION_PACKAGE_REPLACED,
             Intent.ACTION_PACKAGE_REMOVED -> {
-                Log.d(TAG, "应用包变化，拉取使用事件")
-                pullEventsIfServiceRunning(context)
+                Log.d(TAG, "应用包变化，触发数据更新")
+                // 统一通过UnifiedUpdateService进行数据更新
+                dataUpdateEventManager.triggerManualRefreshUpdate(context)
             }
         }
     }

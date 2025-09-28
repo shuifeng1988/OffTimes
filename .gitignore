@@ -75,3 +75,22 @@ Thumbs.db
 /reports/
 # 环境配置文件（包含敏感信息）
 server/.env.production
+# 忽略大文件和敏感文件
+google-play-symbols-*/mapping.txt
+google-play-symbols-*/*.aab
+*.jks
+*.json
+alipay_keys/
+alipayPublicKey_RSA2.txt
+offtimes-*.json
+build_report.txt
+
+# 忽略调试脚本
+debug_*.sh
+oneplus_debug.sh
+force_debug_logs.sh
+final_test.sh
+test_*.sh
+
+# 忽略服务器更新文件
+server_updates/

@@ -15,12 +15,18 @@ android {
     defaultConfig {
         minSdk = 24
         targetSdk = 35
-        versionCode = 28
-        versionName = "1.4.3"
+        versionCode = 31
+        versionName = "1.4.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
+        }
+        
+        // 支持16 KB页面大小 (Android 15+兼容性要求)
+        ndk {
+            // 启用16 KB页面对齐
+            debugSymbolLevel = "SYMBOL_TABLE"
         }
     }
 
@@ -137,10 +143,32 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+        // 支持16 KB页面大小对齐 (Android 15+兼容性)
+        jniLibs {
+            useLegacyPackaging = false
+            // 排除有问题的AndroidX Graphics库，使用软件渲染替代
+            excludes += "**/libandroidx.graphics.path.so"
+        }
     }
     
     lint {
         baseline = file("lint-baseline.xml")
+    }
+    
+    // Android App Bundle配置 - 支持16 KB页面大小
+    bundle {
+        language {
+            // 启用语言资源拆分
+            enableSplit = true
+        }
+        density {
+            // 启用密度资源拆分
+            enableSplit = true
+        }
+        abi {
+            // 启用ABI拆分并确保16 KB对齐
+            enableSplit = true
+        }
     }
 }
 
@@ -150,8 +178,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
     implementation("androidx.activity:activity-compose:1.9.2")
     
-    // Compose BOM
-    implementation(platform("androidx.compose:compose-bom:2024.09.02"))
+    // Compose BOM - 更新到最新版本以支持16 KB对齐
+    implementation(platform("androidx.compose:compose-bom:2024.12.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")

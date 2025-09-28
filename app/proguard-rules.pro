@@ -115,18 +115,22 @@
 
 # ========== 调试信息保留 ==========
 
-# 保留所有日志相关的方法调用（用于生产环境问题排查）
--assumenosideeffects class android.util.Log {
-    public static boolean isLoggable(java.lang.String, int);
+# 保留关键服务的调试日志（用于生产环境问题排查）
+# 注释掉assumenosideeffects以保留UnifiedUpdateService等关键服务的日志
+# -assumenosideeffects class android.util.Log {
+#     public static boolean isLoggable(java.lang.String, int);
+#     public static int v(...);
+#     public static int d(...);
+#     public static int i(...);
+#     public static int w(...);
+#     public static int e(...);
+# } 
+
+# 保留所有日志方法用于调试
+-keep class android.util.Log {
     public static int v(...);
     public static int d(...);
     public static int i(...);
-    public static int w(...);
-    public static int e(...);
-} 
-
-# 但保留错误和警告日志
--keep class android.util.Log {
     public static int w(...);
     public static int e(...);
 } 

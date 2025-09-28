@@ -532,9 +532,9 @@ class HomeViewModel @Inject constructor(
             dataUpdateManager.dataUpdateFlow.collect { event ->
                 android.util.Log.d("HomeViewModel", "收到数据更新事件: ${event.updateType} @ ${event.timestamp}")
                 
-                // 刷新当前选中分类的数据
+                // 只刷新UI数据，不要再次触发数据更新（避免死循环）
                 _selectedCategory.value?.let { category ->
-                    android.util.Log.d("HomeViewModel", "🔄 响应数据更新事件，刷新分类: ${category.name} (ID: ${category.id})")
+                    android.util.Log.d("HomeViewModel", "🔄 响应数据更新事件，刷新UI数据: ${category.name} (ID: ${category.id})")
                     loadUsageData(category.id)
                     loadCategoryGoal(category.id)
                     loadRewardPunishmentSummary()

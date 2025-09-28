@@ -131,6 +131,9 @@ class OffTimeApplication : Application() {
      */
     private fun startDataCollectionServices() {
         try {
+            // 针对真实手机：请求忽略电池优化以增强后台保活
+            requestIgnoreBatteryOptimizations()
+            
             // 检查使用统计权限
             if (UsageStatsPermissionHelper.hasUsageStatsPermission(this)) {
                 // 启动使用统计收集服务
@@ -150,6 +153,29 @@ class OffTimeApplication : Application() {
             }
         } catch (e: Exception) {
             android.util.Log.e("OffTimeApplication", "启动数据收集服务失败", e)
+        }
+    }
+    
+    /**
+     * 请求忽略电池优化
+     * 针对真实手机增强后台保活能力
+     */
+    private fun requestIgnoreBatteryOptimizations() {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                val powerManager = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                val packageName = packageName
+                
+                if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                    android.util.Log.d("OffTimeApplication", "🔋 应用未在电池优化白名单中，将在后续引导用户添加")
+                    // 注意：这里不直接弹出请求对话框，而是在MainActivity中引导用户
+                    // 因为在Application中弹出对话框可能导致ANR或其他问题
+                } else {
+                    android.util.Log.d("OffTimeApplication", "✅ 应用已在电池优化白名单中")
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("OffTimeApplication", "❌ 检查电池优化状态失败", e)
         }
     }
     

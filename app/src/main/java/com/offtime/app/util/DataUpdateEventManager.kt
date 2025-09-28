@@ -109,10 +109,8 @@ class DataUpdateEventManager @Inject constructor() {
         Log.d(TAG, "🔄 触发熄屏数据更新")
         
         try {
-            // 熄屏时进行轻量级数据更新（主要是事件拉取和基础聚合）
-            val historyIntent = android.content.Intent(context, com.offtime.app.service.DataAggregationService::class.java)
-            historyIntent.action = com.offtime.app.service.DataAggregationService.ACTION_PROCESS_HISTORICAL_DATA
-            context.startService(historyIntent)
+            // 熄屏时也统一通过UnifiedUpdateService进行数据更新
+            com.offtime.app.service.UnifiedUpdateService.triggerManualUpdate(context)
             
             // 发送更新事件通知
             _dataUpdateEvents.tryEmit(DataUpdateEvent(UPDATE_TYPE_SCREEN_OFF, currentTime))

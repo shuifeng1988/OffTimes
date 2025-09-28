@@ -18,9 +18,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     
+    <!-- WakeLock权限 - 防止后台服务被系统休眠 -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    
     <!-- 后台运行和电池优化权限 -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
     
     <!-- 音频和震动权限 -->
     <uses-permission android:name="android.permission.VIBRATE" />
@@ -161,6 +163,11 @@
                 <data android:scheme="package" />
             </intent-filter>
         </receiver>
+        
+        <!-- AlarmManager备用唤醒接收器 -->
+        <receiver
+            android:name=".service.UnifiedUpdateService$AlarmReceiver"
+            android:exported="false" />
         
         <!-- 锁屏小部件 -->
         <receiver

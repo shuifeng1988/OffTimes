@@ -1,9 +1,9 @@
-# OffTimes v1.4.3 Release Notes
+# OffTimes v1.4.6 Release Notes
 
 ## Version Information
-- **Version Name**: 1.4.3
-- **Version Code**: 28
-- **Build Date**: 2025-09-23 19:17:54
+- **Version Name**: 1.4.6
+- **Version Code**: 31
+- **Build Date**: 2025-09-28 12:00:41
 - **Build Type**: Release
 
 ## What's New
