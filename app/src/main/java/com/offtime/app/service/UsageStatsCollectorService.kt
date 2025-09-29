@@ -363,15 +363,10 @@ class UsageStatsCollectorService : Service() {
                 Log.w(TAG, "Launcher检测失败(忽略): ${t.message}")
             }
             
-            // 回退方案：若仍未知当前前台应用，则尝试通过 queryUsageStats 推断
+            // 🔧 修复：如果当前没有活跃应用，就是桌面状态，不要强行推断
+            // 已经通过事件处理确定了当前状态，不需要再"回退推断"
             if (currentForegroundPackage == null) {
-                val fg = getForegroundApp()
-                val offTimesPrefix = applicationContext.packageName
-                if (fg != null && !(fg.startsWith(offTimesPrefix) && !AppLifecycleObserver.isActivityInForeground.value)) {
-                    currentForegroundPackage = fg
-                    currentSessionStartTime = if (lastKnownTs > 0) lastKnownTs else currentTime
-                    Log.d(TAG, "✅ 回退推断前台应用: $fg, startTs=${currentSessionStartTime}")
-                }
+                Log.d(TAG, "🏠 当前无活跃前台应用，用户在桌面")
             }
             
             // 使用新的状态机变量
@@ -722,6 +717,7 @@ class UsageStatsCollectorService : Service() {
                         }
                         pauseCount++
                         // 状态机核心：处理应用进入后台
+                        Log.d(TAG, "⏹️ 检查停止事件: $eventPackageName, 当前前台=$currentForegroundPackage")
                         if (currentForegroundPackage == eventPackageName) {
                             val eventTimeStr = java.text.SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(event.timeStamp)
                             Log.d(TAG, "⏹️ 应用停止: ${eventPackageName} at $eventTimeStr")
