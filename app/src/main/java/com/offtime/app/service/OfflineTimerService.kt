@@ -228,7 +228,19 @@ class OfflineTimerService : Service() {
     private fun stopTimer() {
         timerJob?.cancel()
         serviceScope.launch {
-            timerSessionRepository.stopTimer(currentSessionId)
+            try {
+                // 停止计时并保存数据
+                timerSessionRepository.stopTimer(currentSessionId)
+                android.util.Log.d("OfflineTimerService", "线下计时数据已保存，sessionId=$currentSessionId")
+                
+                // 🔧 触发统一更新流程，确保数据同步到所有表和UI
+                android.util.Log.d("OfflineTimerService", "触发统一更新流程...")
+                com.offtime.app.service.UnifiedUpdateService.triggerManualUpdate(this@OfflineTimerService)
+                android.util.Log.d("OfflineTimerService", "统一更新流程已触发")
+                
+            } catch (e: Exception) {
+                android.util.Log.e("OfflineTimerService", "停止计时或触发更新失败", e)
+            }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)

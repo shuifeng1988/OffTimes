@@ -42,7 +42,9 @@ import javax.inject.Inject
  * 1. 原始数据收集：调用UsageStatsCollectorService拉取最新的应用使用事件
  * 2. 基础数据更新：处理跨日期会话，更新活跃应用状态，更新app_sessions_user表
  * 3. 聚合数据更新：将原始数据聚合到daily_usage_user、summary_usage_user等中间表
- * 4. UI刷新通知：通知前端界面刷新数据显示
+ * 4. 数据清理检查：执行必要的数据清理和维护操作
+ * 5. UI刷新通知：通知前端界面刷新数据显示
+ * 6. Widget小插件更新：更新锁屏小插件显示最新数据
  * 
  * 设计理念：
  * - 统一的更新时机：所有数据更新都在同一个时间点按序触发
@@ -318,11 +320,13 @@ class UnifiedUpdateService : Service() {
     /**
      * 执行统一更新流程
      * 
-     * 更新顺序（严格按序执行，确保数据依赖关系正确）：
-     * 1. 原始数据收集 - UsageStatsCollectorService拉取最新事件
-     * 2. 基础数据更新 - 更新原始会话数据和活跃应用状态
-     * 3. 聚合数据更新 - 更新中间聚合表
-     * 4. UI刷新通知 - 通知前端更新显示
+ * 更新顺序（严格按序执行，确保数据依赖关系正确）：
+ * 1. 原始数据收集 - UsageStatsCollectorService拉取最新事件
+ * 2. 基础数据更新 - 更新原始会话数据和活跃应用状态
+ * 3. 聚合数据更新 - 更新中间聚合表
+ * 4. 数据清理检查 - 执行必要的数据清理和维护操作
+ * 5. UI刷新通知 - 通知前端更新显示
+ * 6. Widget小插件更新 - 更新锁屏小插件显示最新数据
      */
     private suspend fun performUnifiedUpdate(updateType: String) {
         try {
@@ -348,6 +352,10 @@ class UnifiedUpdateService : Service() {
             // === 第五阶段：UI刷新通知 ===
             Log.d(TAG, "第五阶段：UI刷新通知")
             notifyUIDataUpdated(updateType)
+            
+            // === 第六阶段：Widget小插件更新 ===
+            Log.d(TAG, "第六阶段：Widget小插件更新")
+            updateWidgets()
             
             val duration = System.currentTimeMillis() - startTime
             Log.d(TAG, "统一更新流程完成 - $updateType，耗时：${duration}ms")
@@ -433,6 +441,23 @@ class UnifiedUpdateService : Service() {
             Log.d(TAG, "已通知UI数据更新 - $updateType")
         } catch (e: Exception) {
             Log.e(TAG, "通知UI数据更新失败", e)
+        }
+    }
+    
+    /**
+     * 更新Widget小插件
+     * 第六步：更新锁屏小插件显示最新数据
+     */
+    private fun updateWidgets() {
+        try {
+            Log.d(TAG, "开始更新Widget小插件")
+            
+            // 使用WidgetUpdateManager更新所有锁屏小插件
+            com.offtime.app.widget.WidgetUpdateManager.updateAllLockScreenWidgets(this)
+            
+            Log.d(TAG, "Widget小插件更新完成")
+        } catch (e: Exception) {
+            Log.e(TAG, "更新Widget小插件失败", e)
         }
     }
     

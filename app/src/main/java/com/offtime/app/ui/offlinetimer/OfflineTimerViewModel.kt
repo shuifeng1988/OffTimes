@@ -1,10 +1,12 @@
 package com.offtime.app.ui.offlinetimer
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.offtime.app.data.repository.TimerSessionRepository
 import com.offtime.app.data.entity.AppCategoryEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -12,7 +14,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class OfflineTimerViewModel @Inject constructor(
-    private val timerSessionRepository: TimerSessionRepository
+    private val timerSessionRepository: TimerSessionRepository,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(OfflineTimerUiState())
@@ -91,8 +94,12 @@ class OfflineTimerViewModel @Inject constructor(
                             message = "停止计时：${timerState.categoryName}"
                         )
                         
-                        // 等待聚合完成后刷新数据（聚合触发在UI层处理）
-                        delay(3000) // 等待3秒让聚合完成
+                        // 🔧 触发统一更新流程，确保数据同步到所有表和UI
+                        android.util.Log.d("OfflineTimerViewModel", "触发统一更新流程...")
+                        com.offtime.app.service.UnifiedUpdateService.triggerManualUpdate(context)
+                        
+                        // 等待统一更新完成后刷新数据
+                        delay(3000) // 等待3秒让统一更新完成
                         loadCategoriesWithDuration()
                     } else {
                         _uiState.value = _uiState.value.copy(

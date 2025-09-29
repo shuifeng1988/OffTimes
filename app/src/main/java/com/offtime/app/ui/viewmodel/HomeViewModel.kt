@@ -5006,6 +5006,12 @@ class HomeViewModel @Inject constructor(
             try {
                 val success = timerSessionRepository.stopTimer(sessionId, elapsedSeconds)
                 android.util.Log.d("HomeViewModel", "已停止分类$categoryId 的线下计时，写入时长=${elapsedSeconds}秒，success=$success")
+                
+                // 🔧 触发统一更新流程，确保数据同步到所有表和UI
+                if (success) {
+                    android.util.Log.d("HomeViewModel", "触发统一更新流程...")
+                    com.offtime.app.service.UnifiedUpdateService.triggerManualUpdate(context)
+                }
             } catch (e: Exception) {
                 android.util.Log.e("HomeViewModel", "停止分类$categoryId 计时并保存失败", e)
             }
@@ -5096,10 +5102,10 @@ class HomeViewModel @Inject constructor(
                     val resetState = CategoryTimerState()
                     updateCategoryTimerState(categoryId, resetState)
                     
-                    android.util.Log.d("HomeViewModel", "线下计时停止，数据由服务自动保存")
+                    android.util.Log.d("HomeViewModel", "线下计时停止，数据由服务自动保存并触发统一更新")
                     
-                    // 刷新数据显示
-                    loadUsageData(categoryId)
+                    // 数据刷新将通过UnifiedUpdateService的统一更新事件自动触发
+                    // 无需手动调用loadUsageData，避免重复更新
                 } else {
                     android.util.Log.w("HomeViewModel", "该分类没有正在运行的计时器")
                 }
