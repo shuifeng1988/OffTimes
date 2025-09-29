@@ -11,8 +11,12 @@ import javax.inject.Singleton
 import com.offtime.app.manager.interfaces.PaymentManager
 import com.offtime.app.manager.interfaces.PaymentResult
 import com.offtime.app.manager.interfaces.PaymentProduct
+import com.offtime.app.data.repository.UserRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlin.coroutines.resume
 
 /**
@@ -21,7 +25,8 @@ import kotlin.coroutines.resume
  */
 @Singleton
 class GooglePlayBillingManager @Inject constructor(
-    private val context: Context
+    private val context: Context,
+    private val userRepository: UserRepository
 ) : PaymentManager, PurchasesUpdatedListener, BillingClientStateListener {
     
     companion object {
@@ -336,10 +341,43 @@ class GooglePlayBillingManager @Inject constructor(
             }
             
             Log.d(TAG, "购买成功: ${purchase.products}")
+            
+            // 🔥 新增：服务器端验证购买
+            verifyPurchaseOnServer(purchase)
+            
             purchaseCallback?.invoke(PurchaseResult(true, "购买成功", purchase))
         } else if (purchase.purchaseState == Purchase.PurchaseState.PENDING) {
             Log.d(TAG, "购买待确认: ${purchase.products}")
             purchaseCallback?.invoke(PurchaseResult(false, "购买待确认", purchase))
+        }
+    }
+    
+    /**
+     * 在服务器端验证购买
+     */
+    private fun verifyPurchaseOnServer(purchase: Purchase) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Log.d(TAG, "🔍 开始服务器端购买验证...")
+                
+                val productId = purchase.products.firstOrNull() ?: PREMIUM_LIFETIME_SKU
+                val result = userRepository.verifyPurchase(
+                    platform = "google_play",
+                    productId = productId,
+                    purchaseToken = purchase.purchaseToken,
+                    orderId = purchase.orderId
+                )
+                
+                if (result.isSuccess) {
+                    Log.d(TAG, "✅ 服务器端购买验证成功")
+                    val verificationResponse = result.getOrNull()
+                    Log.d(TAG, "验证结果: ${verificationResponse}")
+                } else {
+                    Log.e(TAG, "❌ 服务器端购买验证失败: ${result.exceptionOrNull()?.message}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ 服务器端购买验证异常", e)
+            }
         }
     }
     
@@ -390,6 +428,106 @@ class GooglePlayBillingManager @Inject constructor(
         return purchases.any { purchase ->
             purchase.purchaseState == Purchase.PurchaseState.PURCHASED &&
             purchase.products.contains(PREMIUM_LIFETIME_SKU)
+        }
+    }
+    
+    /**
+     * 恢复购买（查询现有购买并同步到服务器）
+     */
+    suspend fun restorePurchases(): Flow<PaymentResult> = flow {
+        Log.d(TAG, "🔄 开始恢复购买...")
+        emit(PaymentResult.Loading)
+        
+        try {
+            // 1. 查询本地Google Play购买记录
+            val localPurchases = queryPurchases()
+            Log.d(TAG, "📱 本地查询到 ${localPurchases.size} 个购买记录")
+            
+            // 2. 验证每个购买记录到服务器
+            var validPurchases = 0
+            for (purchase in localPurchases) {
+                if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
+                    val productId = purchase.products.firstOrNull() ?: PREMIUM_LIFETIME_SKU
+                    val result = userRepository.verifyPurchase(
+                        platform = "google_play",
+                        productId = productId,
+                        purchaseToken = purchase.purchaseToken,
+                        orderId = purchase.orderId
+                    )
+                    
+                    if (result.isSuccess) {
+                        validPurchases++
+                        Log.d(TAG, "✅ 购买记录验证成功: ${purchase.orderId}")
+                    }
+                }
+            }
+            
+            // 3. 从服务器恢复购买
+            val serverRestoreResult = userRepository.restorePurchases()
+            if (serverRestoreResult.isSuccess) {
+                val restoreResponse = serverRestoreResult.getOrNull()!!
+                Log.d(TAG, "🔄 服务器恢复结果: 恢复了${restoreResponse.restoredCount}个购买")
+                
+                emit(PaymentResult.Success(
+                    "恢复购买成功，共恢复${restoreResponse.restoredCount}个有效购买", 
+                    null
+                ))
+            } else {
+                emit(PaymentResult.Error("恢复购买失败: ${serverRestoreResult.exceptionOrNull()?.message}"))
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 恢复购买异常", e)
+            emit(PaymentResult.Error("恢复购买失败: ${e.message}"))
+        }
+    }
+    
+    /**
+     * 同步付费状态（应用启动时调用）
+     */
+    suspend fun syncPurchaseStatus(): Flow<PaymentResult> = flow {
+        Log.d(TAG, "🔄 开始同步付费状态...")
+        emit(PaymentResult.Loading)
+        
+        try {
+            // 1. 查询本地Google Play购买记录
+            val localPurchases = queryPurchases()
+            val hasLocalPurchases = localPurchases.any { 
+                it.purchaseState == Purchase.PurchaseState.PURCHASED 
+            }
+            
+            // 2. 从服务器获取付费状态
+            val serverStatusResult = userRepository.getPurchaseStatusFromServer()
+            
+            if (serverStatusResult.isSuccess) {
+                val serverStatus = serverStatusResult.getOrNull()!!
+                Log.d(TAG, "📊 服务器付费状态: isPremium=${serverStatus.isPremium}")
+                
+                // 3. 如果本地有购买但服务器没有，尝试验证
+                if (hasLocalPurchases && !serverStatus.isPremium) {
+                    Log.d(TAG, "🔍 本地有购买但服务器无记录，开始验证...")
+                    for (purchase in localPurchases) {
+                        if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
+                            verifyPurchaseOnServer(purchase)
+                        }
+                    }
+                }
+                
+                emit(PaymentResult.Success(
+                    "付费状态同步完成", 
+                    null
+                ))
+            } else {
+                Log.w(TAG, "⚠️ 获取服务器付费状态失败，使用本地状态")
+                emit(PaymentResult.Success(
+                    "使用本地付费状态", 
+                    null
+                ))
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 同步付费状态异常", e)
+            emit(PaymentResult.Error("同步付费状态失败: ${e.message}"))
         }
     }
     

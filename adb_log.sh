@@ -1,5 +1,5 @@
 #!/bin/bash
-adb -s emulator-5558 logcat -v time -s UsageStatsCollector:V AppSessionRepository:V | tee ~/offtimes_focus.pixel8.log
+adb -s 3B1F6PE5MS116NFG logcat -v time -s UsageStatsCollector:V AppSessionRepository:V UnifiedUpdateService:V DataUpdateManager:V HomeViewModel:V OffTimeApplication:V DataAggregationService:V DataCleanupManager:V | tee ~/offtimes_oneplus.log
 
 SERIAL=$(adb devices | awk 'NR>1 && $2=="device"{print $1; exit}'); if [ -z "$SERIAL" ]; then echo "No connected devices"; exit 1; fi; echo Using device: $SERIAL; adb -s $SERIAL install -r -d /home/shuifeng/OffTimes/app/build/outputs/apk/googleplay/release/app-googleplay-release.apk | cat
 
@@ -23,3 +23,15 @@ UnifiedUpdateService: 执行快速活跃应用更新
 DataUpdateManager: 发送数据更新事件: QUICK_UPDATE
 如果缺少UnifiedUpdateService的启动日志，说明启动失败；如果有启动但没有周期性日志，说明定时循环有问题。
 ”“”
+
+adb -s 3B1F6PE5MS116NFG logcat -v time -s UsageStatsCollector:V AppSessionRepository:V UnifiedUpdateService:V DataUpdateManager:V HomeViewModel:V OffTimeApplication:V DataAggregationService:V DataCleanupManager:V | tee ~/offtimes_oneplus.log
+
+adb -s 3B1F6PE5MS116NFG logcat -v time -s UsageStatsCollector:V AppSessionRepository:V UnifiedUpdateService:V DataUpdateManager:V OffTimeApplication:V | tee ~/offtimes_oneplus.log
+
+adb -s  emulator-5556 logcat -v time -s UsageStatsCollector:V DataUpdateManager:V OffTimeApplication:V | tee ~/offtimes_oneplus.log
+
+adb -s  3B1F6PE5MS116NFG logcat -v time -s UsageStatsCollector:V DataUpdateManager:V OffTimeApplication:V | tee ~/offtimes_oneplus.log
+
+adb -s  emulator-5558 logcat -v time -s UsageStatsCollector:V DataUpdateManager:V OffTimeApplication:V | tee ~/offtimes_oneplus.log
+
+

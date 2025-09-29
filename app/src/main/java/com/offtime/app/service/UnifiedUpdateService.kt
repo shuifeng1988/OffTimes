@@ -237,10 +237,10 @@ class UnifiedUpdateService : Service() {
         periodicUpdateJob = serviceScope.launch {
             try {
                 android.util.Log.d(TAG, "🎯 协程启动成功，开始执行定时循环")
-                // 立即执行一次更新
+            // 立即执行一次更新
                 val startTime = System.currentTimeMillis()
-                performUnifiedUpdate(DataUpdateManager.UPDATE_TYPE_PERIODIC)
-                
+            performUnifiedUpdate(DataUpdateManager.UPDATE_TYPE_PERIODIC)
+            
                 // 开始定时循环 - 严格按30秒间隔执行完整更新
                 var nextUpdateTime = startTime + UPDATE_INTERVAL_MS
                 

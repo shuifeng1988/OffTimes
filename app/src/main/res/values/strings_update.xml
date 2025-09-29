@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App Update Strings -->
+    <string name="check_update">Check Update</string>
+    <string name="check_update_description">Check if new version is available</string>
+    <string name="update_found">New Version Found</string>
+    <string name="update_checking">Checking for Updates</string>
+    <string name="update_checking_description">Checking if new version is available...</string>
+    <string name="update_latest_version">Latest Version</string>
+    <string name="update_no_update">Already Latest Version</string>
+    <string name="update_no_update_description">You are using the latest version, no update needed.</string>
+    <string name="update_not_supported">In-app Update Not Supported</string>
+    <string name="update_not_supported_description">Google Play version please update through Google Play Store.</string>
+    <string name="update_error">Update Check Failed</string>
+    <string name="update_file_size">File Size</string>
+    <string name="update_release_date">Release Date</string>
+    <string name="update_release_notes">What\'s New</string>
+    <string name="update_download_now">Download Now</string>
+    <string name="update_download_browser">Browser Download</string>
+    <string name="update_download_later">Update Later</string>
+    <string name="update_downloading">Downloading... %1$d%%</string>
+    <string name="update_download_started">Download started, please check notification bar</string>
+    <string name="update_download_failed">Download failed: %1$s</string>
+    <string name="update_retry">Retry</string>
+    <string name="update_cancel">Cancel</string>
+    <string name="update_confirm">OK</string>
+</resources>

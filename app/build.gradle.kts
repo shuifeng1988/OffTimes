@@ -213,8 +213,12 @@ dependencies {
     // Retrofit & Network
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.retrofit2:converter-scalars:2.9.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    
+    // HTML parsing for update check
+    implementation("org.jsoup:jsoup:1.16.1")
     
     // Alipay SDK - 只在支付宝版本中使用
     "alipayImplementation"("com.alipay.sdk:alipaysdk-android:15.8.35")

@@ -263,6 +263,9 @@ class UserRepository @Inject constructor(
                 // 保存token
                 saveTokens(authResponse.accessToken, authResponse.refreshToken, authResponse.expiresIn)
                 
+                // 🔥 新增：登录成功后同步付费状态
+                syncPurchaseStatusFromServer()
+                
                 // 更新或创建本地用户
                 val existingUser = userDao.getUserByPhoneNumber(phoneNumber)
                 val user = if (existingUser != null) {
@@ -429,6 +432,9 @@ class UserRepository @Inject constructor(
                 
                 // 保存token
                 saveTokens(authResponse.accessToken, authResponse.refreshToken, authResponse.expiresIn)
+                
+                // 🔥 新增：登录成功后同步付费状态
+                syncPurchaseStatusFromServer()
                 
                 // 更新或创建本地用户
                 val existingUser = userDao.getUserByPhoneNumber(phoneNumber)
@@ -898,6 +904,173 @@ class UserRepository @Inject constructor(
             userDao.updateUser(updatedUser)
             Result.success(updatedUser)
         } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    // ===== 购买验证相关方法 =====
+    
+    /**
+     * 验证购买收据
+     * @param platform 平台（"google_play" 或 "alipay"）
+     * @param productId 商品ID
+     * @param purchaseToken 购买令牌
+     * @param orderId 订单ID（可选）
+     * @return 验证结果
+     */
+    suspend fun verifyPurchase(
+        platform: String,
+        productId: String,
+        purchaseToken: String,
+        orderId: String? = null
+    ): Result<PurchaseVerificationResponse> {
+        return try {
+            val accessToken = getAccessToken()
+            if (accessToken.isNullOrEmpty()) {
+                return Result.failure(Exception("用户未登录"))
+            }
+            
+            val request = PurchaseVerificationRequest(
+                platform = platform,
+                productId = productId,
+                purchaseToken = purchaseToken,
+                orderId = orderId
+            )
+            
+            val response = userApiService.verifyPurchase("Bearer $accessToken", request)
+            
+            if (response.isSuccessful && response.body()?.success == true) {
+                val verificationResult = response.body()?.data!!
+                
+                // 验证成功后更新本地用户状态
+                if (verificationResult.isValid) {
+                    updateLocalPremiumStatus(true)
+                }
+                
+                Result.success(verificationResult)
+            } else {
+                val errorMessage = response.body()?.message ?: "购买验证失败"
+                Result.failure(Exception(errorMessage))
+            }
+        } catch (e: Exception) {
+            Log.e("UserRepository", "购买验证失败", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * 获取用户付费状态（从服务器）
+     * @return 付费状态信息
+     */
+    suspend fun getPurchaseStatusFromServer(): Result<PurchaseStatusResponse> {
+        return try {
+            val accessToken = getAccessToken()
+            if (accessToken.isNullOrEmpty()) {
+                return Result.failure(Exception("用户未登录"))
+            }
+            
+            val response = userApiService.getPurchaseStatus("Bearer $accessToken")
+            
+            if (response.isSuccessful && response.body()?.success == true) {
+                val statusResult = response.body()?.data!!
+                
+                // 同步到本地
+                updateLocalPremiumStatus(statusResult.isPremium)
+                
+                Result.success(statusResult)
+            } else {
+                val errorMessage = response.body()?.message ?: "获取付费状态失败"
+                Result.failure(Exception(errorMessage))
+            }
+        } catch (e: Exception) {
+            Log.e("UserRepository", "获取付费状态失败", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * 恢复购买
+     * @return 恢复结果
+     */
+    suspend fun restorePurchases(): Result<PurchaseRestoreResponse> {
+        return try {
+            val accessToken = getAccessToken()
+            if (accessToken.isNullOrEmpty()) {
+                return Result.failure(Exception("用户未登录"))
+            }
+            
+            val response = userApiService.restorePurchases("Bearer $accessToken")
+            
+            if (response.isSuccessful && response.body()?.success == true) {
+                val restoreResult = response.body()?.data!!
+                
+                // 更新本地状态
+                updateLocalPremiumStatus(restoreResult.isPremium)
+                
+                Result.success(restoreResult)
+            } else {
+                val errorMessage = response.body()?.message ?: "恢复购买失败"
+                Result.failure(Exception(errorMessage))
+            }
+        } catch (e: Exception) {
+            Log.e("UserRepository", "恢复购买失败", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * 更新本地用户的付费状态
+     * @param isPremium 是否为付费用户
+     */
+    suspend fun updateLocalPremiumStatus(isPremium: Boolean) {
+        try {
+            val currentUser = getCurrentUser() ?: return
+            
+            val updatedUser = currentUser.copy(
+                isPremium = isPremium,
+                subscriptionStatus = if (isPremium) UserEntity.STATUS_PREMIUM else UserEntity.STATUS_TRIAL,
+                paymentTime = if (isPremium) System.currentTimeMillis() else currentUser.paymentTime
+            )
+            
+            userDao.updateUser(updatedUser)
+            Log.d("UserRepository", "本地付费状态已更新: isPremium=$isPremium")
+        } catch (e: Exception) {
+            Log.e("UserRepository", "更新本地付费状态失败", e)
+        }
+    }
+    
+    /**
+     * 同步付费状态（登录时调用）
+     */
+    suspend fun syncPurchaseStatusFromServer() {
+        try {
+            val result = getPurchaseStatusFromServer()
+            if (result.isSuccess) {
+                Log.d("UserRepository", "付费状态同步成功")
+            } else {
+                Log.w("UserRepository", "付费状态同步失败: ${result.exceptionOrNull()?.message}")
+            }
+        } catch (e: Exception) {
+            Log.e("UserRepository", "付费状态同步异常", e)
+        }
+    }
+    
+    /**
+     * 检查Google Play配置状态
+     * @return 配置状态
+     */
+    suspend fun getGooglePlayConfigStatus(): Result<GooglePlayConfigResponse> {
+        return try {
+            val response = userApiService.getGooglePlayConfigStatus()
+            
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.success(response.body()?.data!!)
+            } else {
+                val errorMessage = response.body()?.message ?: "检查配置状态失败"
+                Result.failure(Exception(errorMessage))
+            }
+        } catch (e: Exception) {
+            Log.e("UserRepository", "检查Google Play配置状态失败", e)
             Result.failure(e)
         }
     }

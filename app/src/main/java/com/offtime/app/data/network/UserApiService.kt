@@ -194,6 +194,47 @@ interface UserApiService {
     suspend fun clearBackupData(
         @Header("Authorization") authorization: String
     ): Response<ApiResponse<BackupClearResponse>>
+    
+    // ===== 购买验证相关API =====
+    
+    /**
+     * 验证购买收据
+     * @param authorization 认证头
+     * @param request 购买验证请求体
+     * @return API响应结果
+     */
+    @POST("purchase/verify")
+    suspend fun verifyPurchase(
+        @Header("Authorization") authorization: String,
+        @Body request: PurchaseVerificationRequest
+    ): Response<ApiResponse<PurchaseVerificationResponse>>
+    
+    /**
+     * 获取用户付费状态
+     * @param authorization 认证头
+     * @return API响应结果
+     */
+    @GET("purchase/status")
+    suspend fun getPurchaseStatus(
+        @Header("Authorization") authorization: String
+    ): Response<ApiResponse<PurchaseStatusResponse>>
+    
+    /**
+     * 恢复购买
+     * @param authorization 认证头
+     * @return API响应结果
+     */
+    @POST("purchase/restore")
+    suspend fun restorePurchases(
+        @Header("Authorization") authorization: String
+    ): Response<ApiResponse<PurchaseRestoreResponse>>
+    
+    /**
+     * 检查Google Play配置状态
+     * @return API响应结果
+     */
+    @GET("purchase/config-status")
+    suspend fun getGooglePlayConfigStatus(): Response<ApiResponse<GooglePlayConfigResponse>>
 }
 
 // API请求和响应数据类
@@ -473,4 +514,70 @@ data class BackupSettingsRequest(
  */
 data class BackupClearResponse(
     val deletedCount: Int
+)
+
+// ===== 购买验证相关数据类 =====
+
+/**
+ * 购买验证请求
+ */
+data class PurchaseVerificationRequest(
+    val platform: String, // "google_play" 或 "alipay"
+    val productId: String,
+    val purchaseToken: String,
+    val orderId: String? = null
+)
+
+/**
+ * 购买验证响应
+ */
+data class PurchaseVerificationResponse(
+    val subscriptionId: String,
+    val status: String,
+    val purchaseTime: String,
+    val expiryTime: String?,
+    val isValid: Boolean
+)
+
+/**
+ * 购买状态响应
+ */
+data class PurchaseStatusResponse(
+    val isPremium: Boolean,
+    val premiumExpiresAt: String?,
+    val subscriptions: List<SubscriptionInfo>,
+    val latestSubscription: SubscriptionInfo?
+)
+
+/**
+ * 订阅信息
+ */
+data class SubscriptionInfo(
+    val id: String,
+    val platform: String,
+    val productId: String,
+    val purchaseTime: String,
+    val expiryTime: String?,
+    val status: String
+)
+
+/**
+ * 购买恢复响应
+ */
+data class PurchaseRestoreResponse(
+    val restoredCount: Int,
+    val totalSubscriptions: Int,
+    val isPremium: Boolean,
+    val validSubscriptions: List<SubscriptionInfo>
+)
+
+/**
+ * Google Play配置状态响应
+ */
+data class GooglePlayConfigResponse(
+    val isConfigured: Boolean,
+    val hasServiceAccountKey: Boolean,
+    val hasPackageName: Boolean,
+    val canInitialize: Boolean,
+    val errorMessage: String?
 ) 

@@ -699,6 +699,47 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
                 
+                // 检查更新 (仅支付宝版本)
+                if (com.offtime.app.BuildConfig.FLAVOR == "alipay") {
+                    var showUpdateDialog by remember { mutableStateOf(false) }
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(com.offtime.app.R.string.check_update),
+                                fontSize = 16.sp
+                            )
+                            Text(
+                                text = stringResource(com.offtime.app.R.string.check_update_description),
+                                fontSize = 16.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        
+                        Button(
+                            onClick = { showUpdateDialog = true }
+                        ) {
+                            Text(
+                                text = stringResource(com.offtime.app.R.string.check_update),
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
+                    
+                    // 更新对话框
+                    if (showUpdateDialog) {
+                        com.offtime.app.ui.screen.UpdateDialog(
+                            onDismiss = { showUpdateDialog = false }
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+                
                 // 关于应用
                 Row(
                     modifier = Modifier.fillMaxWidth(),

@@ -10,10 +10,13 @@ import com.offtime.app.BuildConfig
 import com.offtime.app.manager.interfaces.PaymentManager
 import com.offtime.app.manager.interfaces.PaymentResult
 import com.offtime.app.manager.interfaces.PaymentProduct
+import com.offtime.app.data.repository.UserRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import java.io.UnsupportedEncodingException
 import java.net.URLEncoder
 import java.text.SimpleDateFormat
@@ -37,7 +40,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class AlipayPaymentManager @Inject constructor(
-    private val context: Context
+    private val context: Context,
+    private val userRepository: UserRepository
 ) : PaymentManager {
     
     companion object {
@@ -89,16 +93,16 @@ class AlipayPaymentManager @Inject constructor(
             val signedOrderInfo = signOrderInfo(orderInfo)
             Log.d(TAG, "Signed order info: $signedOrderInfo")
             
-            // 在子线程中调用支付宝支付
+            // 在子线程中调用支付宝支付 - 使用传入的Activity而不是Context
             val result = withContext(Dispatchers.IO) {
-                val payTask = PayTask(context as Activity)
+                val payTask = PayTask(activity)
                 payTask.payV2(signedOrderInfo, true)
             }
             
             Log.d(TAG, "Payment result: $result")
             
             // 解析支付结果
-            val paymentResult = parsePaymentResult(result)
+            val paymentResult = parsePaymentResult(result, productId)
             emit(paymentResult)
             
         } catch (e: Exception) {
@@ -205,14 +209,27 @@ class AlipayPaymentManager @Inject constructor(
      */
     private fun rsaSign(content: String, privateKey: String, charset: String): String {
         try {
-            val priPKCS8 = PKCS8EncodedKeySpec(Base64.decode(privateKey, Base64.DEFAULT))
+            // 清理私钥格式：移除头尾标识和换行符
+            val cleanPrivateKey = privateKey
+                .replace("-----BEGIN PRIVATE KEY-----", "")
+                .replace("-----END PRIVATE KEY-----", "")
+                .replace("-----BEGIN RSA PRIVATE KEY-----", "")
+                .replace("-----END RSA PRIVATE KEY-----", "")
+                .replace("\n", "")
+                .replace("\r", "")
+                .replace(" ", "")
+                .trim()
+            
+            Log.d(TAG, "Private key length after cleaning: ${cleanPrivateKey.length}")
+            
+            val priPKCS8 = PKCS8EncodedKeySpec(Base64.decode(cleanPrivateKey, Base64.NO_WRAP))
             val keyFactory = KeyFactory.getInstance("RSA")
             val priKey: PrivateKey = keyFactory.generatePrivate(priPKCS8)
             val signature = Signature.getInstance("SHA256WithRSA")
             signature.initSign(priKey)
             signature.update(content.toByteArray(charset(charset)))
             val signed = signature.sign()
-            return Base64.encodeToString(signed, Base64.DEFAULT).replace("\n", "")
+            return Base64.encodeToString(signed, Base64.NO_WRAP)
         } catch (e: Exception) {
             Log.e(TAG, "RSA sign failed", e)
             throw e
@@ -222,7 +239,7 @@ class AlipayPaymentManager @Inject constructor(
     /**
      * 解析支付结果
      */
-    private fun parsePaymentResult(result: Map<String, String>): PaymentResult {
+    private fun parsePaymentResult(result: Map<String, String>, productId: String): PaymentResult {
         val resultStatus = result["resultStatus"]
         
         return when (resultStatus) {
@@ -230,6 +247,10 @@ class AlipayPaymentManager @Inject constructor(
                 // 支付成功
                 val resultData = result["result"] ?: ""
                 val orderId = extractOrderId(resultData)
+                
+                // 🔥 新增：支付成功后进行服务器验证
+                verifyPaymentOnServer(productId, orderId, resultData)
+                
                 PaymentResult.Success(orderId, resultData)
             }
             "8000" -> {
@@ -252,6 +273,35 @@ class AlipayPaymentManager @Inject constructor(
             else -> {
                 val memo = result["memo"] ?: "未知错误"
                 PaymentResult.Error("支付异常: $memo")
+            }
+        }
+    }
+    
+    /**
+     * 在服务器端验证支付宝支付
+     */
+    private fun verifyPaymentOnServer(productId: String, orderId: String, resultData: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Log.d(TAG, "🔍 开始支付宝服务器端验证...")
+                
+                // 使用订单号作为购买令牌（支付宝特有）
+                val result = userRepository.verifyPurchase(
+                    platform = "alipay",
+                    productId = productId,
+                    purchaseToken = orderId,
+                    orderId = orderId
+                )
+                
+                if (result.isSuccess) {
+                    Log.d(TAG, "✅ 支付宝服务器端验证成功")
+                    val verificationResponse = result.getOrNull()
+                    Log.d(TAG, "验证结果: ${verificationResponse}")
+                } else {
+                    Log.e(TAG, "❌ 支付宝服务器端验证失败: ${result.exceptionOrNull()?.message}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ 支付宝服务器端验证异常", e)
             }
         }
     }
@@ -299,5 +349,82 @@ class AlipayPaymentManager @Inject constructor(
         
         json.append("}")
         return json.toString()
+    }
+    
+    // ===== 跨设备付费同步功能 =====
+    
+    /**
+     * 恢复购买（支付宝版本）
+     * 支付宝没有本地购买记录查询，主要依赖服务器端恢复
+     */
+    suspend fun restorePurchases(): Flow<PaymentResult> = flow {
+        Log.d(TAG, "🔄 开始恢复支付宝购买...")
+        emit(PaymentResult.Loading)
+        
+        try {
+            // 支付宝主要通过服务器端恢复购买记录
+            val serverRestoreResult = userRepository.restorePurchases()
+            
+            if (serverRestoreResult.isSuccess) {
+                val restoreResponse = serverRestoreResult.getOrNull()!!
+                Log.d(TAG, "🔄 支付宝恢复结果: 恢复了${restoreResponse.restoredCount}个购买")
+                
+                emit(PaymentResult.Success(
+                    "恢复购买成功，共恢复${restoreResponse.restoredCount}个有效购买", 
+                    null
+                ))
+            } else {
+                emit(PaymentResult.Error("恢复购买失败: ${serverRestoreResult.exceptionOrNull()?.message}"))
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 恢复购买异常", e)
+            emit(PaymentResult.Error("恢复购买失败: ${e.message}"))
+        }
+    }
+    
+    /**
+     * 同步付费状态（支付宝版本）
+     */
+    suspend fun syncPurchaseStatus(): Flow<PaymentResult> = flow {
+        Log.d(TAG, "🔄 开始同步支付宝付费状态...")
+        emit(PaymentResult.Loading)
+        
+        try {
+            // 从服务器获取付费状态
+            val serverStatusResult = userRepository.getPurchaseStatusFromServer()
+            
+            if (serverStatusResult.isSuccess) {
+                val serverStatus = serverStatusResult.getOrNull()!!
+                Log.d(TAG, "📊 服务器付费状态: isPremium=${serverStatus.isPremium}")
+                
+                emit(PaymentResult.Success(
+                    "付费状态同步完成", 
+                    null
+                ))
+            } else {
+                Log.w(TAG, "⚠️ 获取服务器付费状态失败")
+                emit(PaymentResult.Error("同步付费状态失败: ${serverStatusResult.exceptionOrNull()?.message}"))
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 同步付费状态异常", e)
+            emit(PaymentResult.Error("同步付费状态失败: ${e.message}"))
+        }
+    }
+    
+    /**
+     * 检查支付宝配置状态
+     */
+    fun checkAlipayConfiguration(): Map<String, Any> {
+        return mapOf(
+            "isConfigured" to (BuildConfig.ALIPAY_APP_ID.isNotEmpty() && 
+                              BuildConfig.ALIPAY_MERCHANT_PRIVATE_KEY.isNotEmpty()),
+            "hasAppId" to BuildConfig.ALIPAY_APP_ID.isNotEmpty(),
+            "hasPrivateKey" to BuildConfig.ALIPAY_MERCHANT_PRIVATE_KEY.isNotEmpty(),
+            "hasPublicKey" to BuildConfig.ALIPAY_PUBLIC_KEY.isNotEmpty(),
+            "isSandbox" to isSandbox,
+            "appId" to BuildConfig.ALIPAY_APP_ID
+        )
     }
 }
