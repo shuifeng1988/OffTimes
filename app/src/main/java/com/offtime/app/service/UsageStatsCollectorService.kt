@@ -244,7 +244,15 @@ class UsageStatsCollectorService : Service() {
                     flushAllSessionsSync()
                 }
             }
-            
+
+            // 🔧 新增：屏幕关闭时结算当前活跃应用，阻止后台使用被记录
+            "FLUSH_ON_SCREEN_OFF" -> {
+                Log.d(TAG, "📴 屏幕关闭，结算当前活跃应用并暂停记录")
+                serviceScope.launch {
+                    flushActiveSessionOnScreenOff()
+                }
+            }
+
             else -> {
                 Log.d(TAG, "未知的服务操作: ${intent?.action}")
             }
@@ -341,10 +349,10 @@ class UsageStatsCollectorService : Service() {
                 while (ue.hasNextEvent()) {
                     val e = UsageEvents.Event()
                     ue.getNextEvent(e)
-                    if (e.eventType == UsageEvents.Event.ACTIVITY_RESUMED || e.eventType == 1 || e.eventType == 19) {
+                    if (e.eventType == UsageEvents.Event.ACTIVITY_RESUMED || e.eventType == 1) {  // 不处理19(前台服务)
                         lastResumePkg = e.packageName
                         lastResumeTs = e.timeStamp
-                    } else if ((e.eventType == UsageEvents.Event.ACTIVITY_PAUSED || e.eventType == 2 || e.eventType == 20 || e.eventType == 23) && e.packageName == lastResumePkg) {
+                    } else if ((e.eventType == UsageEvents.Event.ACTIVITY_PAUSED || e.eventType == 2 || e.eventType == 23) && e.packageName == lastResumePkg) {  // 不处理20(前台服务停止)
                         lastResumePkg = null
                     }
                 }
@@ -371,11 +379,10 @@ class UsageStatsCollectorService : Service() {
             
             // 使用新的状态机变量
             if (currentForegroundPackage != null && currentSessionStartTime != null) {
-                val packageName = currentForegroundPackage!!
-                val startTime = currentSessionStartTime!!
-                
-                Log.d(TAG, "实时统计 → 当前活跃应用: $packageName")
+                var packageName = currentForegroundPackage!!
+                var startTime = currentSessionStartTime!!
 
+                // 🔧 修复：先进行纠偏检查，再打印日志
                 // 如果是OffTimes自身，并且UI不在前台，则进行纠偏：
                 if (packageName.startsWith(applicationContext.packageName) && !AppLifecycleObserver.isActivityInForeground.value) {
                     // 优先尝试通过近期UsageEvents找出真正的前台应用（避免等待下一次pullEvents导致的延迟）
@@ -392,16 +399,18 @@ class UsageStatsCollectorService : Service() {
                             val p = e.packageName ?: continue
                             if (p.startsWith(offTimesPrefix)) continue
                             if (!isUserApp(p)) continue
-                            if (e.eventType == UsageEvents.Event.ACTIVITY_RESUMED || e.eventType == 1 || e.eventType == 19) {
+                            if (e.eventType == UsageEvents.Event.ACTIVITY_RESUMED || e.eventType == 1) {  // 不处理19(前台服务)
                                 lastResumePkg = p
                                 lastResumeTs = e.timeStamp
-                            } else if ((e.eventType == UsageEvents.Event.ACTIVITY_PAUSED || e.eventType == 2 || e.eventType == 20 || e.eventType == 23) && p == lastResumePkg) {
+                            } else if ((e.eventType == UsageEvents.Event.ACTIVITY_PAUSED || e.eventType == 2 || e.eventType == 23) && p == lastResumePkg) {  // 不处理20(前台服务停止)
                                 // 被暂停，作废
                                 lastResumePkg = null
                             }
                         }
                         if (lastResumePkg != null) {
                             Log.d(TAG, "🔧 实时纠偏: OffTimes误判为前台，切换到 $lastResumePkg 自$lastResumeTs 起")
+                            packageName = lastResumePkg
+                            startTime = lastResumeTs
                             currentForegroundPackage = lastResumePkg
                             currentSessionStartTime = lastResumeTs
                         } else {
@@ -409,18 +418,23 @@ class UsageStatsCollectorService : Service() {
                             val fg = getForegroundApp()
                             if (fg != null && !fg.startsWith(offTimesPrefix)) {
                                 Log.d(TAG, "🔧 实时纠偏(getForegroundApp): 切换到 $fg")
+                                packageName = fg
+                                startTime = currentTime
                                 currentForegroundPackage = fg
                                 currentSessionStartTime = currentTime
                             } else {
-                                Log.d(TAG, "🚫 实时统计过滤: OffTimes UI不在前台，不累积使用时间 (packageName=$packageName)")
+                                Log.d(TAG, "🚫 实时统计过滤: OffTimes UI不在前台，无真正前台应用，不累积使用时间")
                                 return
                             }
                         }
                     } catch (t: Throwable) {
-                        Log.d(TAG, "🚫 实时统计过滤: OffTimes UI不在前台，不累积使用时间 (packageName=$packageName)")
+                        Log.d(TAG, "🚫 实时统计过滤: OffTimes UI不在前台，纠偏失败，不累积使用时间")
                         return
                     }
                 }
+                
+                // 纠偏完成后，再打印日志
+                Log.d(TAG, "实时统计 → 当前活跃应用: $packageName")
                 
                 val currentDuration = (currentTime - startTime) / 1000
                 Log.d(TAG, "实时统计 → $packageName, 已使用${currentDuration}秒")
@@ -499,11 +513,11 @@ class UsageStatsCollectorService : Service() {
                     }
 
                     when (event.eventType) {
-                        UsageEvents.Event.ACTIVITY_RESUMED, 1, 19 -> {
+                        UsageEvents.Event.ACTIVITY_RESUMED, 1 -> {  // 不处理19(前台服务)
                             lastForegroundApp = eventPackageName
                             lastForegroundTime = event.timeStamp
                         }
-                        UsageEvents.Event.ACTIVITY_PAUSED, 2, 20, 23 -> {
+                        UsageEvents.Event.ACTIVITY_PAUSED, 2, 23 -> {
                             if (eventPackageName == lastForegroundApp) {
                                 // 如果最后一个前台应用已经关闭，则没有需要恢复的应用
                                 lastForegroundApp = null
@@ -548,15 +562,43 @@ class UsageStatsCollectorService : Service() {
                 val begin = appSessionRepository.getLastTimestamp()
                 val end = System.currentTimeMillis()
 
-                // 第一次启动，从当天 0 点开始拉取
+                // 🔧 关键修复：第一次启动时回溯获取历史数据，避免数据丢失
                 val realBegin = if (begin == 0L) {
-                    java.util.Calendar.getInstance().apply {
-                        set(java.util.Calendar.HOUR_OF_DAY, 0)
-                        set(java.util.Calendar.MINUTE, 0)
-                        set(java.util.Calendar.SECOND, 0)
-                        set(java.util.Calendar.MILLISECOND, 0)
-                    }.timeInMillis
-                } else begin
+                    // 第一次启动，从7天前开始拉取历史数据
+                    // 这样可以确保即使应用几天没有打开，也能获取到历史数据
+                    val calendar = java.util.Calendar.getInstance()
+                    calendar.add(java.util.Calendar.DAY_OF_YEAR, -7) // 回溯7天
+                    calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                    calendar.set(java.util.Calendar.MINUTE, 0)
+                    calendar.set(java.util.Calendar.SECOND, 0)
+                    calendar.set(java.util.Calendar.MILLISECOND, 0)
+                    val historicalBegin = calendar.timeInMillis
+                    
+                    Log.d(TAG, "🔧 第一次启动，回溯获取7天历史数据: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(historicalBegin)}")
+                    historicalBegin
+                } else {
+                    // 非第一次启动，从上次的时间戳继续
+                    // 但如果间隔超过1天，也要适当回溯以防遗漏
+                    val timeSinceLastUpdate = end - begin
+                    val oneDayInMillis = 24 * 60 * 60 * 1000L
+                    
+                    if (timeSinceLastUpdate > oneDayInMillis) {
+                        // 如果超过1天没有更新，回溯到前一天开始
+                        val calendar = java.util.Calendar.getInstance()
+                        calendar.timeInMillis = begin
+                        calendar.add(java.util.Calendar.DAY_OF_YEAR, -1)
+                        calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                        calendar.set(java.util.Calendar.MINUTE, 0)
+                        calendar.set(java.util.Calendar.SECOND, 0)
+                        calendar.set(java.util.Calendar.MILLISECOND, 0)
+                        val backtrackBegin = calendar.timeInMillis
+                        
+                        Log.d(TAG, "🔧 检测到长时间未更新(${timeSinceLastUpdate/1000/3600}小时)，回溯获取数据: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(backtrackBegin)}")
+                        backtrackBegin
+                    } else {
+                        begin
+                    }
+                }
 
                 val lastTs = processUsageEvents(realBegin, end)
 
@@ -621,8 +663,8 @@ class UsageStatsCollectorService : Service() {
                 // 🔥 关键过滤：OffTimes后台事件一律过滤，只保留真正的前台使用
                 if (eventPackageName.startsWith(applicationContext.packageName)) {
                     // 如果一个事件声称OffTimes到了前台...
-                    // 注意：必须包含所有可能触发前台的事件类型：ACTIVITY_RESUMED(1), FOREGROUND_SERVICE_START(19)
-                    if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED || event.eventType == 1 || event.eventType == 19) {
+                    // 🔧 只处理真正的Activity前台事件：ACTIVITY_RESUMED(1)，不处理FOREGROUND_SERVICE_START(19)
+                    if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED || event.eventType == 1) {
                         
                         // 🔥 严格过滤：只有当OffTimes的UI真正在前台时，才保留事件
                         if (!AppLifecycleObserver.isActivityInForeground.value) {
@@ -639,8 +681,19 @@ class UsageStatsCollectorService : Service() {
                     continue
                 }
 
+                // 🔧 只处理真正的Activity前台事件，忽略前台服务事件
+                // 事件类型说明：
+                // 1 = ACTIVITY_RESUMED (Activity进入前台) ✅ 用户真正使用
+                // 2 = ACTIVITY_PAUSED (Activity离开前台) ✅ 用户停止使用
+                // 19 = FOREGROUND_SERVICE_START (前台服务启动) ❌ 不是用户使用，忽略
+                // 20 = FOREGROUND_SERVICE_STOP (前台服务停止) ❌ 不是用户使用，忽略
+                // 23 = ACTIVITY_STOPPED (Activity停止) ⚠️ 可作为备用停止信号
                 when (event.eventType) {
-                    UsageEvents.Event.ACTIVITY_RESUMED, 1, 19 -> {
+                    UsageEvents.Event.ACTIVITY_RESUMED, 1 -> {  // 只处理Activity前台，不处理前台服务
+                        // 🔧 注意：不能在这里检查当前屏幕状态来过滤历史事件！
+                        // 因为UsageStatsManager返回的是历史事件，我们无法知道事件发生时屏幕是否亮着。
+                        // 正确的做法是：屏幕关闭时通过FLUSH_ON_SCREEN_OFF立即结算当前会话。
+
                         // 若Launcher成为前台，则结束当前会话并清空前台状态
                         if (isLauncherApp(eventPackageName)) {
                             if (currentForegroundPackage != null) {
@@ -702,7 +755,7 @@ class UsageStatsCollectorService : Service() {
                         }
                     }
 
-                    UsageEvents.Event.ACTIVITY_PAUSED, 2, 20, 23 -> {
+                    UsageEvents.Event.ACTIVITY_PAUSED, 2, 23 -> {  // 移除20(前台服务停止)
                         // OffTimes在前台时忽略Pause，避免被后台任务打断
                         if (event.packageName != null &&
                             event.packageName.startsWith(applicationContext.packageName)) {
@@ -744,7 +797,13 @@ class UsageStatsCollectorService : Service() {
             
             Log.d(TAG, "事件处理完成: 总计${eventCount}个事件 (启动${resumeCount}个, 结束${pauseCount}个)")
             if (currentForegroundPackage != null) {
-                Log.d(TAG, "当前活跃应用: ${currentForegroundPackage}")
+                // 🔧 修复：如果当前活跃应用是OffTimes但UI不在前台，不打印日志（避免误导）
+                if (currentForegroundPackage?.startsWith(applicationContext.packageName) == true && 
+                    !AppLifecycleObserver.isActivityInForeground.value) {
+                    Log.d(TAG, "当前状态: OffTimes后台服务（UI不在前台）")
+                } else {
+                    Log.d(TAG, "当前活跃应用: ${currentForegroundPackage}")
+                }
             }
             
         } catch (e: Exception) {
@@ -818,14 +877,19 @@ class UsageStatsCollectorService : Service() {
                     val age = now - candidateTs
                     // 放宽容忍时间到3分钟，适配部分系统上lastTimeVisible刷新不及时
                     if (age <= 180_000) {
+                        // 🔧 修复：如果候选是OffTimes但UI不在前台，说明是后台服务
+                        // 应该清除缓存并返回null，而不是返回旧的缓存值
                         if (candidate.startsWith(offTimesPrefix) && !AppLifecycleObserver.isActivityInForeground.value) {
-                            Log.d(TAG, "getForegroundApp(new): 候选为OffTimes但UI不在前台，忽略，返回缓存=$lastKnownForeground")
-                            return lastKnownForeground
+                            Log.d(TAG, "getForegroundApp(new): 候选为OffTimes但UI不在前台，清除缓存并回退到legacy方法")
+                            lastKnownForeground = null
+                            lastKnownTs = 0L
+                            // 不返回缓存，继续执行到getForegroundAppLegacy
+                        } else {
+                            lastKnownForeground = candidate
+                            lastKnownTs = candidateTs
+                            Log.d(TAG, "getForegroundApp(new): 即时前台=$candidate, age=${age}ms")
+                            return candidate
                         }
-                        lastKnownForeground = candidate
-                        lastKnownTs = candidateTs
-                        Log.d(TAG, "getForegroundApp(new): 即时前台=$candidate, age=${age}ms")
-                        return candidate
                     } else {
                         // 若没有任何已知前台，则在兜底情况下也返回该候选，避免空值
                         if (lastKnownForeground == null) {
@@ -866,13 +930,13 @@ class UsageStatsCollectorService : Service() {
                 val p = e.packageName ?: continue
                 if (isLauncherApp(p)) continue
                 when (e.eventType) {
-                    UsageEvents.Event.ACTIVITY_RESUMED, 1, 19 -> {
+                    UsageEvents.Event.ACTIVITY_RESUMED, 1 -> {  // 不处理19(前台服务)
                         if (!paused.contains(p)) {
                             candidate = p
                             candidateTs = e.timeStamp
                         }
                     }
-                    UsageEvents.Event.ACTIVITY_PAUSED, 2, 20, 23 -> paused.add(p)
+                    UsageEvents.Event.ACTIVITY_PAUSED, 2, 23 -> paused.add(p)  // 移除20(前台服务停止)
                 }
             }
 
@@ -880,9 +944,13 @@ class UsageStatsCollectorService : Service() {
             if (candidate != null) {
                 val age = now - candidateTs
                 if (age <= 3_000) {
+                    // 🔧 修复：如果候选是OffTimes但UI不在前台，说明是后台服务
+                    // 应该清除缓存并返回null，表示当前无真正的前台应用
                     if (candidate.startsWith(offTimesPrefix) && !AppLifecycleObserver.isActivityInForeground.value) {
-                        Log.d(TAG, "getForegroundApp(legacy): 候选为OffTimes但UI不在前台，忽略，返回缓存=$lastKnownForeground")
-                        return lastKnownForeground
+                        Log.d(TAG, "getForegroundApp(legacy): 候选为OffTimes但UI不在前台，清除缓存返回null")
+                        lastKnownForeground = null
+                        lastKnownTs = 0L
+                        return null
                     }
                     lastKnownForeground = candidate
                     lastKnownTs = candidateTs
@@ -983,10 +1051,15 @@ class UsageStatsCollectorService : Service() {
             return
         }
         
-        Log.d(TAG, "Flushing active session (async): $currentForegroundPackage")
+        // 🔧 修复：检查OffTimes后台情况
+        val pkg = currentForegroundPackage!!
+        if (pkg.startsWith(applicationContext.packageName) && !AppLifecycleObserver.isActivityInForeground.value) {
+            Log.d(TAG, "Flushing active session (async): OffTimes后台服务（UI不在前台）")
+        } else {
+            Log.d(TAG, "Flushing active session (async): $pkg")
+        }
         
         // 异步执行，用于正常停止时
-        val pkg = currentForegroundPackage!!
         val start = currentSessionStartTime!!
         
             serviceScope.launch {
@@ -1009,8 +1082,13 @@ class UsageStatsCollectorService : Service() {
         
         // 处理当前活跃会话
         if (currentForegroundPackage != null) {
-            Log.d(TAG, "Flushing active session (sync): $currentForegroundPackage")
             val pkg = currentForegroundPackage!!
+            // 🔧 修复：检查OffTimes后台情况
+            if (pkg.startsWith(applicationContext.packageName) && !AppLifecycleObserver.isActivityInForeground.value) {
+                Log.d(TAG, "Flushing active session (sync): OffTimes后台服务（UI不在前台）")
+            } else {
+                Log.d(TAG, "Flushing active session (sync): $pkg")
+            }
             val start = currentSessionStartTime!!
             
             try {
@@ -1046,7 +1124,49 @@ class UsageStatsCollectorService : Service() {
             Log.d(TAG, "No active or paused sessions to flush")
         }
     }
-    
+
+    /**
+     * 🔧 新增：屏幕关闭时结算当前活跃应用
+     *
+     * 当用户关闭屏幕时（如黑屏听歌、后台微信等场景），
+     * 立即结算当前活跃的应用会话，并清空状态。
+     * 这样可以确保只统计用户亮屏使用的时间。
+     */
+    private suspend fun flushActiveSessionOnScreenOff() {
+        val now = System.currentTimeMillis()
+
+        Log.d(TAG, "📴 屏幕关闭，开始结算活跃应用...")
+
+        // 处理当前活跃会话
+        if (currentForegroundPackage != null && currentSessionStartTime != null) {
+            val pkg = currentForegroundPackage!!
+            val start = currentSessionStartTime!!
+
+            Log.d(TAG, "📴 结算屏幕关闭前的活跃应用: $pkg, 开始时间: $start, 结束时间: $now")
+
+            try {
+                appSessionRepository.upsertSessionSmart(pkg, start, now)
+                Log.d(TAG, "✅ 成功结算: $pkg, 时长: ${(now - start) / 1000}秒")
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ 结算失败: $pkg", e)
+            }
+
+            // 清空当前状态，停止记录
+            currentForegroundPackage = null
+            currentSessionStartTime = null
+        } else {
+            Log.d(TAG, "📴 屏幕关闭时没有活跃应用需要结算")
+        }
+
+        // 清空暂停的会话（如果有）
+        if (pausedSessionPackage != null) {
+            Log.d(TAG, "📴 清空暂停的会话: $pausedSessionPackage")
+            pausedSessionPackage = null
+            pausedSessionStartTime = null
+            pausedSessionPauseTime = null
+        }
+    }
+
     /**
      * 判断OffTimes事件是否为后台事件
      * 后台事件的特征：

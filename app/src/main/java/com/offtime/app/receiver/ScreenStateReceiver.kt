@@ -8,6 +8,7 @@ import com.offtime.app.service.UsageStatsCollectorService
 import com.offtime.app.utils.FirstLaunchManager
 import com.offtime.app.utils.UsageStatsPermissionHelper
 import com.offtime.app.util.DataUpdateEventManager
+import com.offtime.app.util.AppLifecycleObserver
 import com.offtime.app.BuildConfig
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -53,6 +54,8 @@ class ScreenStateReceiver : BroadcastReceiver() {
 
             Intent.ACTION_SCREEN_ON -> {
                 Log.d(TAG, "屏幕点亮，触发数据更新")
+                // 🔧 更新全局屏幕状态
+                AppLifecycleObserver.onScreenOn()
                 // 屏幕点亮时，确保服务运行
                 startUsageStatsCollectionIfReady(context, "屏幕点亮", firstLaunchManager)
                 // 统一通过UnifiedUpdateService进行数据更新
@@ -60,7 +63,11 @@ class ScreenStateReceiver : BroadcastReceiver() {
             }
 
             Intent.ACTION_SCREEN_OFF -> {
-                Log.d(TAG, "屏幕关闭，触发数据更新")
+                Log.d(TAG, "屏幕关闭，触发数据更新并结算当前应用")
+                // 🔧 更新全局屏幕状态
+                AppLifecycleObserver.onScreenOff()
+                // 🔧 关键：屏幕关闭时立即结算当前活跃应用，停止记录后台使用
+                flushActiveSessionOnScreenOff(context)
                 // 统一通过UnifiedUpdateService进行数据更新
                 dataUpdateEventManager.triggerScreenOffUpdate(context)
             }
@@ -158,6 +165,34 @@ class ScreenStateReceiver : BroadcastReceiver() {
 
         } catch (e: Exception) {
             Log.e(TAG, "拉取事件失败", e)
+        }
+    }
+
+    /**
+     * 🔧 新增：屏幕关闭时立即结算当前活跃应用
+     * 确保黑屏后台使用（如听歌、微信后台）不被记录
+     */
+    private fun flushActiveSessionOnScreenOff(context: Context) {
+        try {
+            Log.d(TAG, "🔧 屏幕关闭，通知服务结算当前活跃应用")
+
+            val serviceIntent = Intent(context, UsageStatsCollectorService::class.java).apply {
+                action = "FLUSH_ON_SCREEN_OFF"
+            }
+
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    context.startForegroundService(serviceIntent)
+                } else {
+                    context.startService(serviceIntent)
+                }
+                Log.d(TAG, "🔧 已通知服务结算活跃应用")
+            } catch (e: Exception) {
+                Log.e(TAG, "通知服务结算活跃应用失败", e)
+            }
+
+        } catch (e: Exception) {
+            Log.e(TAG, "屏幕关闭结算失败", e)
         }
     }
 } 
